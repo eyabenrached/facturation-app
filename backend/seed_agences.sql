@@ -1,0 +1,37 @@
+-- Insertion des agences dans la base "facturation"
+-- A exécuter avec : psql -U postgres -d facturation -f seed_agences.sql
+
+INSERT INTO agences (nom_agence, responsable, telephone, email) VALUES
+('Ambiance Voyage', 'Mme Ahlem', '26 758 189', 'ambiancevoyages1@gmail.com'),
+('Autre', '.....', '......', 'ddd@ff.fr'),
+('Baya Travel', 'FethiGharsallah', '71947407', 'info@bayatravel.tn'),
+('BM Travel', 'M.', '71 253 566', 'contact@bm-travel-tunisia.com'),
+('Chrono Voyages', 'Ayari Hassen', '25103813', 'contact@chronovoyages.net'),
+('Confiance Voyages', 'Leila Troudi', '71 345 500', 'confiance.voyage@gmail.com'),
+('CONGRESS TOUR TUNISIE', 'Mr Adnene Sellemi', '71 23 46 66', 'contact@congresstourtunisie.com'),
+('Dominos Travel', 'Hamza Ben Moulehem', '71 894 600', 'commercial@dominostravel.com'),
+('Eurafr tours', 'tarek ben rached', '72 266 899', 'capitol.travel@planet.tn'),
+('Fridou voyages', 'borhen bettaieb', '31 163 725', 'fridouvoyages@gmail.com'),
+('FUNNY TIME TOURS', 'SABER BEL HADJ', '97481483', 'funny_timetours@yahoo.fr'),
+('Hyper Travel', 'Amor Hermassi', '70 855 555', 'transport.hypertravel@gmail.com'),
+('I Travel', 'Imed Ayari', '94700605', 'itraveltunisia@gmail.com'),
+('Iris Tours', 'Khaled Belhadj', '71 906 709', 'iris.tours@planet.tn'),
+('Joury Travel', 'Ammar', '55646253', 'jourytravel@gmail.com'),
+('Love''s Tours', 'Mme saoussen', '58496072', 'contact.lovestours@gmail.com'),
+('LTS Tourisme', 'Mounir', '98610624', 'ltstourisme7@gmail.com'),
+('Mahdi Hidri Travel', 'Mehdi Hidri', '29597332', 'hidrimahdi968@gmail.com'),
+('Maktaris Travel', 'Boumaiza Lassad', '71 791 176', 'maktaristravel@topnet.tn'),
+('Mena Tours', 'Amine Hajjem', '70 241 100', 'transport@menatours.com'),
+('Mon Agence', 'Leila', '71831478', 'direction@mon-agence.tn'),
+('Omaro Travel', 'Khalil', '53 039 014', 'omarotravel@gmail.com'),
+('Saby voyages', 'Mr ahmed', '00000', 'pp@kkd.com'),
+('Scan Travel Servises', 'Mehdi Hidri', '55926418', 'hidrimahdi968@gmail.com'),
+('Souvenir Voyages', 'Kheiri', '71 241 944', 'souvenir-voyages@topnet.tn'),
+('SUN BEACH TRAVEL', 'Sami Mahmoudi', '71 302 150', 'commercial.sunbeachtravel@gmail.com'),
+('SUN SMILE', 'MR TAWFIK', '58598430', 'emna.c@sunsmiletours.net'),
+('Tunisia Link Tour', 'Mme Salwa SAYARI BOUJAH', '71 353 306', 'tunisialinktour@gmail.com'),
+('Tuniversel Voyage', 'Med Ali Sokkeh', '98601532', 'tuniversel.voyages@topnet.tn'),
+('Uthina Tours', 'MR AZOUZ', '21534267', 'uthina.tours@gmail.com'),
+('Yahoo Travel', 'Alaa', '58601475', 'info@yahoo-tn-travel.com'),
+('Zoom Voyages', 'SABER ARRAKI', '71 909 129', 'info@zoomvoyage.com')
+ON CONFLICT (nom_agence) DO NOTHING;

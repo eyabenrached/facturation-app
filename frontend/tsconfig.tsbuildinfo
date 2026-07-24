@@ -1,0 +1,1 @@
+{"root":["./src/App.tsx","./src/api.ts","./src/main.tsx","./src/types.ts","./src/vite-env.d.ts","./src/components/DataTable.tsx","./src/components/Modal.tsx","./src/pages/Agences.tsx","./src/pages/Chauffeurs.tsx","./src/pages/Circuits.tsx","./src/pages/Clients.tsx","./src/pages/MouvementsFacturation.tsx","./src/pages/Vehicules.tsx"],"version":"5.9.3"}

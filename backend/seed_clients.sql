@@ -1,0 +1,20 @@
+INSERT INTO clients (nom_societe, responsable, telephone, email, taux_tva, remise) VALUES
+('BM', 'M.', '71 253 566', 'contact@bm-travel-tunisia.com', 19, 0),
+('Cimpress (vistaprint)', 'Amir Chakhar', '99 805 676', 'achakhar@vistaprint.com', 19, 0),
+('Costa Voyages', 'Mme Imen', '31 185 185', 'costavoyages3@gmail.com', 19, 0),
+('Ecostaff', 'Hamdi Dellali', '53774662', 'hamdi.dellali@ecostaff.fr', 19, 0),
+('FEINMETALL Tunisie', 'Aouadhi Houcine', '28281532', 'aouadhihoucine@gmail.com', 19, 0),
+('I Travel Tunisia', 'Imed', '94700605', 'itraveltunisia@gmail.com', 19, 0),
+('Iris Tours', 'Mr', '00', '00@kk.tn', 19, 0),
+('Joury Travel', 'Mr', '0000', '00@00.00', 19, 0),
+('Jumia', 'Mr', '0000', '00@00.00', 19, 0),
+('National Pen', 'Anis Garbeya', '99 810 614', 'Anis.Garbaya@pens.com', 19, 0),
+('NCT MGHIRA', 'HAMDI MOHAMED', '22725564', 'hamdi.mohamed@nct-tunisia.com', 19, 0),
+('Pixart Printing', 'Olfa Elghoul', '99689663', 'Olfa.ElGhoul@pixartprinting.com', 19, 0),
+('Saqara', 'Faten Trabelsi', '98147225', 'feten.trabelsi@saqara.com', 19, 0),
+('Souvenirs Voyages', 'Kheiri', '71 241 944', 'souvenir-voyages@topnet.tn', 19, 0),
+('SUN SMILE', 'MR TAWFIK', '58598430', 'emna.c@sunsmiletours.net', 19, 0),
+('Tuniversel Voyages', 'Mohamed Ali Sokkeh', '20770754', 'tuniversel.voyages@topnet.tn', 19, 0),
+('Umanlink', 'Ezzeddine Ben Jouher', '70131665', 'Ezzeddine.BenJouher@umanlink.com', 19, 0),
+('Vermeg Media', 'Myriam Sanhaji', '36406100', 'msanhaji@vermeg.com', 19, 0)
+ON CONFLICT (nom_societe) DO NOTHING;
