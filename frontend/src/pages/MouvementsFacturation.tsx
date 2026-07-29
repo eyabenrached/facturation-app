@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, pdfUrl } from "../api";
-import { Mouvement, Client, Circuit, Chauffeur, Vehicule, Facture, StatutFacture } from "../types";
+import { Mouvement, Client, Circuit, Chauffeur, Vehicule, Facture, StatutFacture, LABELS_TYPE_VEHICULE } from "../types";
 import { DataTable } from "../components/DataTable";
 import { Modal } from "../components/Modal";
 
@@ -11,6 +11,7 @@ const VIDE_MOUVEMENT = {
   circuit_id: 0,
   chauffeur_id: null as number | null,
   vehicule_id: null as number | null,
+  nb_personnes: null as number | null,
 };
 
 function badgeStatut(s: StatutFacture) {
@@ -91,6 +92,7 @@ export default function MouvementsFacturation() {
       circuit_id: m.circuit_id,
       chauffeur_id: m.chauffeur_id,
       vehicule_id: m.vehicule_id,
+      nb_personnes: m.nb_personnes,
     });
     setPrixSuggere(m.prix_applique);
     setErreurMvt("");
@@ -100,8 +102,9 @@ export default function MouvementsFacturation() {
   async function rafraichirPrixSuggere(next: typeof formMvt) {
     if (next.client_id && next.circuit_id && next.heure) {
       try {
+        const vehiculeParam = next.vehicule_id ? `&vehicule_id=${next.vehicule_id}` : "";
         const res = await api.get<{ prix_suggere: number }>(
-          `/mouvements/prix-suggere?client_id=${next.client_id}&circuit_id=${next.circuit_id}&heure=${next.heure}`
+          `/mouvements/prix-suggere?client_id=${next.client_id}&circuit_id=${next.circuit_id}&heure=${next.heure}${vehiculeParam}`
         );
         setPrixSuggere(res.prix_suggere);
       } catch {
@@ -238,6 +241,9 @@ export default function MouvementsFacturation() {
           { header: "Heure", render: (m) => m.heure },
           { header: "Client", render: (m) => m.client?.nom_societe || "—" },
           { header: "Circuit", render: (m) => (m.circuit ? `${m.circuit.point_depart} → ${m.circuit.point_arrivee}` : "—") },
+          { header: "Chauffeur", render: (m) => (m.chauffeur ? `${m.chauffeur.prenom} ${m.chauffeur.nom}` : "—") },
+          { header: "Véhicule", render: (m) => m.vehicule?.matricule || "—" },
+          { header: "Nb pers.", render: (m) => m.nb_personnes ?? "—" },
           { header: "Prix", render: (m) => `${m.prix_applique} TND` },
           { header: "Statut", render: (m) => (m.facture_id ? "Facturé" : "Non facturé") },
           {
@@ -335,8 +341,21 @@ export default function MouvementsFacturation() {
               <label>Véhicule (optionnel)</label>
               <select value={formMvt.vehicule_id || ""} onChange={(e) => majFormMvt({ vehicule_id: e.target.value ? Number(e.target.value) : null })}>
                 <option value="">—</option>
-                {vehicules.map((v) => <option key={v.id} value={v.id}>{v.matricule}</option>)}
+                {vehicules.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.matricule} ({LABELS_TYPE_VEHICULE[v.type_vehicule]})
+                  </option>
+                ))}
               </select>
+            </div>
+            <div className="form-field">
+              <label>Nombre de personnes (optionnel)</label>
+              <input
+                type="number"
+                min={0}
+                value={formMvt.nb_personnes ?? ""}
+                onChange={(e) => setFormMvt({ ...formMvt, nb_personnes: e.target.value ? Number(e.target.value) : null })}
+              />
             </div>
           </div>
           <div className="recap-box" style={{ marginBottom: "1rem" }}>

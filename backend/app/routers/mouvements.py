@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session, joinedload
 from .. import models, schemas
 from ..database import get_db
 from ..deps import exiger_utilisateur_connecte
-from ..pricing import calculer_prix
+from ..pricing import calculer_prix, type_vehicule_du_vehicule
 
 router = APIRouter(prefix="/mouvements", tags=["Mouvements"])
 
@@ -20,7 +20,10 @@ def liste_mouvements(
     db: Session = Depends(get_db),
 ):
     q = db.query(models.Mouvement).options(
-        joinedload(models.Mouvement.client), joinedload(models.Mouvement.circuit)
+        joinedload(models.Mouvement.client),
+        joinedload(models.Mouvement.circuit),
+        joinedload(models.Mouvement.chauffeur),
+        joinedload(models.Mouvement.vehicule),
     )
     if date_du:
         q = q.filter(models.Mouvement.date >= date_du)
@@ -46,7 +49,8 @@ def creer_mouvement(payload: schemas.MouvementCreate, db: Session = Depends(get_
 
     prix = payload.prix_applique
     if prix is None:
-        prix = calculer_prix(db, payload.client_id, payload.circuit_id, payload.heure)
+        type_vehicule = type_vehicule_du_vehicule(db, payload.vehicule_id)
+        prix = calculer_prix(db, payload.client_id, payload.circuit_id, payload.heure, type_vehicule)
 
     obj = models.Mouvement(
         date=payload.date,
@@ -55,6 +59,7 @@ def creer_mouvement(payload: schemas.MouvementCreate, db: Session = Depends(get_
         circuit_id=payload.circuit_id,
         chauffeur_id=payload.chauffeur_id,
         vehicule_id=payload.vehicule_id,
+        nb_personnes=payload.nb_personnes,
         prix_applique=prix,
     )
     db.add(obj)
@@ -77,7 +82,8 @@ def modifier_mouvement(mouvement_id: int, payload: schemas.MouvementCreate, db: 
 
     prix = payload.prix_applique
     if prix is None:
-        prix = calculer_prix(db, payload.client_id, payload.circuit_id, payload.heure)
+        type_vehicule = type_vehicule_du_vehicule(db, payload.vehicule_id)
+        prix = calculer_prix(db, payload.client_id, payload.circuit_id, payload.heure, type_vehicule)
 
     obj.date = payload.date
     obj.heure = payload.heure
@@ -85,6 +91,7 @@ def modifier_mouvement(mouvement_id: int, payload: schemas.MouvementCreate, db: 
     obj.circuit_id = payload.circuit_id
     obj.chauffeur_id = payload.chauffeur_id
     obj.vehicule_id = payload.vehicule_id
+    obj.nb_personnes = payload.nb_personnes
     obj.prix_applique = prix
 
     db.commit()
@@ -105,11 +112,16 @@ def supprimer_mouvement(mouvement_id: int, db: Session = Depends(get_db)):
 
 @router.get("/prix-suggere", dependencies=[Depends(exiger_utilisateur_connecte)])
 def prix_suggere(
-    client_id: int, circuit_id: int, heure: str, db: Session = Depends(get_db)
+    client_id: int,
+    circuit_id: int,
+    heure: str,
+    vehicule_id: int | None = None,
+    db: Session = Depends(get_db),
 ):
     """Aide au formulaire : renvoie le prix calculé avant même de créer le mouvement."""
     from datetime import time as time_cls
     h, m = heure.split(":")[:2]
     heure_obj = time_cls(int(h), int(m))
-    prix = calculer_prix(db, client_id, circuit_id, heure_obj)
-    return {"prix_suggere": prix}
+    type_vehicule = type_vehicule_du_vehicule(db, vehicule_id)
+    prix = calculer_prix(db, client_id, circuit_id, heure_obj, type_vehicule)
+    return {"prix_suggere": prix, "type_vehicule": type_vehicule.value}

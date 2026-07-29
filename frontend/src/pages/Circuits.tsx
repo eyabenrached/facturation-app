@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
-import { Circuit, Client, TarifClient } from "../types";
+import { Circuit, Client, TarifClient, TypeVehicule, LABELS_TYPE_VEHICULE } from "../types";
 import { DataTable } from "../components/DataTable";
 import { Modal } from "../components/Modal";
 import { useAuth } from "../auth/AuthContext";
@@ -12,8 +12,11 @@ const VIDE: Omit<Circuit, "id"> = {
   prix_nuit: 0,
 };
 
+const TYPES_VEHICULE: TypeVehicule[] = ["mini_bus", "quatre_quatre", "microbus", "bus"];
+
 const VIDE_TARIF = {
   client_id: 0,
+  type_vehicule: "" as TypeVehicule | "",
   heure_debut: "",
   heure_fin: "",
   prix: 0,
@@ -23,7 +26,6 @@ export default function Circuits() {
   const { utilisateur } = useAuth();
   const estAdmin = utilisateur?.role === "administrateur";
   const [liste, setListe] = useState<Circuit[]>([]);
-  const [recherche, setRecherche] = useState("");
   const [clients, setClients] = useState<Client[]>([]);
   const [modalOuvert, setModalOuvert] = useState(false);
   const [enEdition, setEnEdition] = useState<Circuit | null>(null);
@@ -102,6 +104,7 @@ export default function Circuits() {
       await api.post("/circuits/tarifs/", {
         client_id: formTarif.client_id,
         circuit_id: circuitTarifs.id,
+        type_vehicule: formTarif.type_vehicule || null,
         heure_debut: formTarif.heure_debut || null,
         heure_fin: formTarif.heure_fin || null,
         prix: formTarif.prix,
@@ -121,15 +124,6 @@ export default function Circuits() {
     }
   }
 
-  const listeFiltree = liste.filter((c) => {
-    const terme = recherche.trim().toLowerCase();
-    if (!terme) return true;
-    return (
-      c.point_depart.toLowerCase().includes(terme) ||
-      c.point_arrivee.toLowerCase().includes(terme)
-    );
-  });
-
   return (
     <div>
       <div className="page-header">
@@ -137,16 +131,8 @@ export default function Circuits() {
         {estAdmin && <button className="btn" onClick={ouvrirAjout}>+ Ajouter un circuit</button>}
       </div>
 
-      <div className="toolbar">
-        <input
-          placeholder="Recherche départ / arrivée"
-          value={recherche}
-          onChange={(e) => setRecherche(e.target.value)}
-        />
-      </div>
-
       <DataTable<Circuit>
-        rows={listeFiltree}
+        rows={liste}
         columns={[
           { header: "Départ", render: (c) => c.point_depart },
           { header: "Arrivée", render: (c) => c.point_arrivee },
@@ -222,6 +208,7 @@ export default function Circuits() {
             <thead>
               <tr>
                 <th>Client</th>
+                <th>Type véhicule</th>
                 <th>Créneau horaire</th>
                 <th>Prix</th>
                 <th></th>
@@ -229,11 +216,12 @@ export default function Circuits() {
             </thead>
             <tbody>
               {tarifs.length === 0 ? (
-                <tr><td colSpan={4} className="empty-cell">Aucun tarif spécifique pour ce circuit.</td></tr>
+                <tr><td colSpan={5} className="empty-cell">Aucun tarif spécifique pour ce circuit.</td></tr>
               ) : (
                 tarifs.map((t) => (
                   <tr key={t.id}>
                     <td>{clients.find((c) => c.id === t.client_id)?.nom_societe || t.client_id}</td>
+                    <td>{t.type_vehicule ? LABELS_TYPE_VEHICULE[t.type_vehicule] : "Tous types"}</td>
                     <td>{t.heure_debut && t.heure_fin ? `${t.heure_debut} – ${t.heure_fin}` : "Toute heure"}</td>
                     <td>{t.prix} TND</td>
                     <td>{estAdmin && <button className="btn-link" onClick={() => supprimerTarif(t)}>Supprimer</button>}</td>
@@ -255,6 +243,18 @@ export default function Circuits() {
                   >
                     <option value="">— Sélectionner —</option>
                     {clients.map((c) => <option key={c.id} value={c.id}>{c.nom_societe}</option>)}
+                  </select>
+                </div>
+                <div className="form-field">
+                  <label>Type de véhicule (optionnel)</label>
+                  <select
+                    value={formTarif.type_vehicule}
+                    onChange={(e) => setFormTarif({ ...formTarif, type_vehicule: e.target.value as TypeVehicule | "" })}
+                  >
+                    <option value="">Tous types</option>
+                    {TYPES_VEHICULE.map((t) => (
+                      <option key={t} value={t}>{LABELS_TYPE_VEHICULE[t]}</option>
+                    ))}
                   </select>
                 </div>
                 <div className="form-field">

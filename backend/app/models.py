@@ -20,6 +20,13 @@ class RoleUtilisateur(str, enum.Enum):
     gestionnaire = "gestionnaire"
 
 
+class TypeVehicule(str, enum.Enum):
+    mini_bus = "mini_bus"
+    microbus = "microbus"
+    bus = "bus"
+    quatre_quatre = "quatre_quatre"
+
+
 class Utilisateur(Base):
     __tablename__ = "utilisateurs"
 
@@ -82,6 +89,9 @@ class Vehicule(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     matricule: Mapped[str] = mapped_column(String(30), unique=True, index=True)
     agence_id: Mapped[int] = mapped_column(ForeignKey("agences.id"))
+    type_vehicule: Mapped[TypeVehicule] = mapped_column(
+        Enum(TypeVehicule, name="type_vehicule"), default=TypeVehicule.mini_bus
+    )
     ambiance_voyage: Mapped[str | None] = mapped_column(String(100), nullable=True)
     remarque: Mapped[str | None] = mapped_column(Text, nullable=True)
 
@@ -110,6 +120,9 @@ class TarifClient(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     client_id: Mapped[int] = mapped_column(ForeignKey("clients.id"))
     circuit_id: Mapped[int] = mapped_column(ForeignKey("circuits.id"))
+    type_vehicule: Mapped[TypeVehicule | None] = mapped_column(
+        Enum(TypeVehicule, name="type_vehicule"), nullable=True
+    )
     heure_debut: Mapped[time | None] = mapped_column(Time, nullable=True)
     heure_fin: Mapped[time | None] = mapped_column(Time, nullable=True)
     prix: Mapped[float] = mapped_column(Numeric(10, 3))
@@ -128,6 +141,7 @@ class Mouvement(Base):
     circuit_id: Mapped[int] = mapped_column(ForeignKey("circuits.id"))
     chauffeur_id: Mapped[int | None] = mapped_column(ForeignKey("chauffeurs.id"), nullable=True)
     vehicule_id: Mapped[int | None] = mapped_column(ForeignKey("vehicules.id"), nullable=True)
+    nb_personnes: Mapped[int | None] = mapped_column(nullable=True)
     prix_applique: Mapped[float] = mapped_column(Numeric(10, 3))
     facture_id: Mapped[int | None] = mapped_column(ForeignKey("factures.id"), nullable=True)
 

@@ -26,10 +26,20 @@ export interface Agence {
   email: string;
 }
 
+export type TypeVehicule = "mini_bus" | "quatre_quatre" | "microbus" | "bus";
+
+export const LABELS_TYPE_VEHICULE: Record<TypeVehicule, string> = {
+  mini_bus: "Mini bus",
+  quatre_quatre: "4x4",
+  microbus: "Microbus",
+  bus: "Bus",
+};
+
 export interface Vehicule {
   id: number;
   matricule: string;
   agence_id: number;
+  type_vehicule: TypeVehicule;
   ambiance_voyage: string | null;
   remarque: string | null;
   agence?: Agence;
@@ -57,6 +67,7 @@ export interface TarifClient {
   id: number;
   client_id: number;
   circuit_id: number;
+  type_vehicule: TypeVehicule | null;
   heure_debut: string | null;
   heure_fin: string | null;
   prix: number;
@@ -70,13 +81,17 @@ export interface Mouvement {
   circuit_id: number;
   chauffeur_id: number | null;
   vehicule_id: number | null;
+  nb_personnes: number | null;
   prix_applique: number;
   facture_id: number | null;
   client?: Client;
   circuit?: Circuit;
+  chauffeur?: Chauffeur;
+  vehicule?: Vehicule;
 }
 
 export type StatutFacture = "payee" | "impayee" | "partielle";
+
 
 export interface Facture {
   id: number;

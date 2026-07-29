@@ -1,6 +1,6 @@
 from datetime import date, time, datetime
 from pydantic import BaseModel, EmailStr, ConfigDict
-from .models import StatutFacture, RoleUtilisateur
+from .models import StatutFacture, RoleUtilisateur, TypeVehicule
 
 
 # ---------- Authentification / Utilisateurs ----------
@@ -90,6 +90,7 @@ class AgenceOut(AgenceBase):
 class VehiculeBase(BaseModel):
     matricule: str
     agence_id: int
+    type_vehicule: TypeVehicule = TypeVehicule.mini_bus
     ambiance_voyage: str | None = None
     remarque: str | None = None
 
@@ -125,6 +126,7 @@ class CircuitOut(CircuitBase):
 class TarifClientBase(BaseModel):
     client_id: int
     circuit_id: int
+    type_vehicule: TypeVehicule | None = None  # None = valable pour tous les types
     heure_debut: time | None = None
     heure_fin: time | None = None
     prix: float
@@ -147,6 +149,7 @@ class MouvementBase(BaseModel):
     circuit_id: int
     chauffeur_id: int | None = None
     vehicule_id: int | None = None
+    nb_personnes: int | None = None
 
 
 class MouvementCreate(MouvementBase):
@@ -161,6 +164,8 @@ class MouvementOut(MouvementBase):
     facture_id: int | None = None
     client: ClientOut | None = None
     circuit: CircuitOut | None = None
+    chauffeur: ChauffeurOut | None = None
+    vehicule: VehiculeOut | None = None
 
 
 # ---------- Factures ----------

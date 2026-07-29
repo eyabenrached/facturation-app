@@ -1,15 +1,18 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
-import { Vehicule, Agence } from "../types";
+import { Vehicule, Agence, TypeVehicule, LABELS_TYPE_VEHICULE } from "../types";
 import { DataTable } from "../components/DataTable";
 import { useAuth } from "../auth/AuthContext";
 
 const VIDE: Omit<Vehicule, "id"> = {
   matricule: "",
   agence_id: 0,
+  type_vehicule: "mini_bus",
   ambiance_voyage: "",
   remarque: "",
 };
+
+const TYPES_VEHICULE: TypeVehicule[] = ["mini_bus", "quatre_quatre", "microbus", "bus"];
 
 export default function Vehicules() {
   const { utilisateur } = useAuth();
@@ -103,6 +106,17 @@ export default function Vehicules() {
             </select>
           </div>
           <div className="form-field">
+            <label>Type de véhicule</label>
+            <select
+              value={form.type_vehicule}
+              onChange={(e) => setForm({ ...form, type_vehicule: e.target.value as TypeVehicule })}
+            >
+              {TYPES_VEHICULE.map((t) => (
+                <option key={t} value={t}>{LABELS_TYPE_VEHICULE[t]}</option>
+              ))}
+            </select>
+          </div>
+          <div className="form-field">
             <label>Ambiance / type de voyage</label>
             <input
               placeholder="ex. climatisé, VIP, standard"
@@ -135,6 +149,7 @@ export default function Vehicules() {
         rows={liste}
         columns={[
           { header: "Matricule", render: (v) => v.matricule },
+          { header: "Type", render: (v) => LABELS_TYPE_VEHICULE[v.type_vehicule] },
           { header: "Agence", render: (v) => v.agence?.nom_agence || "—" },
           { header: "Ambiance", render: (v) => v.ambiance_voyage || "—" },
           { header: "Remarque", render: (v) => v.remarque || "—" },
