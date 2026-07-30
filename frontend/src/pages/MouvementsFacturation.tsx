@@ -99,6 +99,24 @@ export default function MouvementsFacturation() {
     setModalMvtOuvert(true);
   }
 
+  function dupliquerMouvement(m: Mouvement) {
+    // Toujours en mode "création" : même en partant d'un mouvement déjà
+    // facturé, la copie créée est un nouveau mouvement non facturé.
+    setMouvementEnEdition(null);
+    setFormMvt({
+      date: m.date,
+      heure: m.heure,
+      client_id: m.client_id,
+      circuit_id: m.circuit_id,
+      chauffeur_id: m.chauffeur_id,
+      vehicule_id: m.vehicule_id,
+      nb_personnes: m.nb_personnes,
+    });
+    setPrixSuggere(m.prix_applique);
+    setErreurMvt("");
+    setModalMvtOuvert(true);
+  }
+
   async function rafraichirPrixSuggere(next: typeof formMvt) {
     if (next.client_id && next.circuit_id && next.heure) {
       try {
@@ -248,10 +266,15 @@ export default function MouvementsFacturation() {
           { header: "Statut", render: (m) => (m.facture_id ? "Facturé" : "Non facturé") },
           {
             header: "Actions",
-            render: (m) => !m.facture_id && (
+            render: (m) => (
               <>
-                <button className="btn-link" onClick={() => ouvrirEditionMouvement(m)}>Modifier</button>
-                <button className="btn-link" onClick={() => supprimerMouvement(m)}>Supprimer</button>
+                <button className="btn-link" onClick={() => dupliquerMouvement(m)}>Dupliquer</button>
+                {!m.facture_id && (
+                  <>
+                    <button className="btn-link" onClick={() => ouvrirEditionMouvement(m)}>Modifier</button>
+                    <button className="btn-link" onClick={() => supprimerMouvement(m)}>Supprimer</button>
+                  </>
+                )}
               </>
             ),
           },
