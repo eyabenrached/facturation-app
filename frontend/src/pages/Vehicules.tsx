@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { api } from "../api";
 import { Vehicule, Agence, TypeVehicule, LABELS_TYPE_VEHICULE } from "../types";
 import { DataTable } from "../components/DataTable";
@@ -20,6 +20,7 @@ export default function Vehicules() {
   const [liste, setListe] = useState<Vehicule[]>([]);
   const [agences, setAgences] = useState<Agence[]>([]);
   const [filtreAgence, setFiltreAgence] = useState<string>("");
+  const [rechercheTexte, setRechercheTexte] = useState<string>("");
   const [enEdition, setEnEdition] = useState<Vehicule | null>(null);
   const [form, setForm] = useState(VIDE);
   const [erreur, setErreur] = useState("");
@@ -36,6 +37,22 @@ export default function Vehicules() {
   useEffect(() => {
     charger();
   }, [filtreAgence]);
+
+  // Filtrage côté client selon la recherche textuelle
+  const listeFiltree = useMemo(() => {
+    const terme = rechercheTexte.trim().toLowerCase();
+    if (!terme) return liste;
+    return liste.filter((v) => {
+      const typeLabel = LABELS_TYPE_VEHICULE[v.type_vehicule]?.toLowerCase() ?? "";
+      return (
+        v.matricule.toLowerCase().includes(terme) ||
+        typeLabel.includes(terme) ||
+        (v.agence?.nom_agence ?? "").toLowerCase().includes(terme) ||
+        (v.ambiance_voyage ?? "").toLowerCase().includes(terme) ||
+        (v.remarque ?? "").toLowerCase().includes(terme)
+      );
+    });
+  }, [liste, rechercheTexte]);
 
   function nouveauFormulaire() {
     setEnEdition(null);
@@ -86,57 +103,79 @@ export default function Vehicules() {
       </div>
 
       {estAdmin && (
-      <div className="card" style={{ marginBottom: "1.25rem" }}>
-        {erreur && <p className="error-msg">{erreur}</p>}
-        <div className="form-grid">
-          <div className="form-field">
-            <label>Matricule</label>
-            <input value={form.matricule} onChange={(e) => setForm({ ...form, matricule: e.target.value })} />
+        <div className="card" style={{ marginBottom: "1.25rem" }}>
+          {erreur && <p className="error-msg">{erreur}</p>}
+          <div className="form-grid">
+            <div className="form-field">
+              <label>Matricule</label>
+              <input
+                value={form.matricule}
+                onChange={(e) => setForm({ ...form, matricule: e.target.value })}
+              />
+            </div>
+            <div className="form-field">
+              <label>Agence</label>
+              <select
+                value={form.agence_id || ""}
+                onChange={(e) => setForm({ ...form, agence_id: Number(e.target.value) })}
+              >
+                <option value="">— Sélectionner —</option>
+                {agences.map((a) => (
+                  <option key={a.id} value={a.id}>{a.nom_agence}</option>
+                ))}
+              </select>
+            </div>
+            <div className="form-field">
+              <label>Type de véhicule</label>
+              <select
+                value={form.type_vehicule}
+                onChange={(e) => setForm({ ...form, type_vehicule: e.target.value as TypeVehicule })}
+              >
+                {TYPES_VEHICULE.map((t) => (
+                  <option key={t} value={t}>{LABELS_TYPE_VEHICULE[t]}</option>
+                ))}
+              </select>
+            </div>
+            <div className="form-field">
+              <label>Ambiance / type de voyage</label>
+              <input
+                placeholder="ex. climatisé, VIP, standard"
+                value={form.ambiance_voyage || ""}
+                onChange={(e) => setForm({ ...form, ambiance_voyage: e.target.value })}
+              />
+            </div>
+            <div className="form-field">
+              <label>Remarque</label>
+              <input
+                value={form.remarque || ""}
+                onChange={(e) => setForm({ ...form, remarque: e.target.value })}
+              />
+            </div>
           </div>
-          <div className="form-field">
-            <label>Agence</label>
-            <select
-              value={form.agence_id || ""}
-              onChange={(e) => setForm({ ...form, agence_id: Number(e.target.value) })}
-            >
-              <option value="">— Sélectionner —</option>
-              {agences.map((a) => (
-                <option key={a.id} value={a.id}>{a.nom_agence}</option>
-              ))}
-            </select>
-          </div>
-          <div className="form-field">
-            <label>Type de véhicule</label>
-            <select
-              value={form.type_vehicule}
-              onChange={(e) => setForm({ ...form, type_vehicule: e.target.value as TypeVehicule })}
-            >
-              {TYPES_VEHICULE.map((t) => (
-                <option key={t} value={t}>{LABELS_TYPE_VEHICULE[t]}</option>
-              ))}
-            </select>
-          </div>
-          <div className="form-field">
-            <label>Ambiance / type de voyage</label>
-            <input
-              placeholder="ex. climatisé, VIP, standard"
-              value={form.ambiance_voyage || ""}
-              onChange={(e) => setForm({ ...form, ambiance_voyage: e.target.value })}
-            />
-          </div>
-          <div className="form-field">
-            <label>Remarque</label>
-            <input value={form.remarque || ""} onChange={(e) => setForm({ ...form, remarque: e.target.value })} />
+          <div className="form-actions">
+            {enEdition && (
+              <button className="btn secondary" onClick={nouveauFormulaire}>
+                Annuler la modification
+              </button>
+            )}
+            <button className="btn" onClick={enregistrer}>
+              {enEdition ? "Enregistrer les modifications" : "+ Ajouter le véhicule"}
+            </button>
           </div>
         </div>
-        <div className="form-actions">
-          {enEdition && <button className="btn secondary" onClick={nouveauFormulaire}>Annuler la modification</button>}
-          <button className="btn" onClick={enregistrer}>{enEdition ? "Enregistrer les modifications" : "+ Ajouter le véhicule"}</button>
-        </div>
-      </div>
       )}
 
       <div className="toolbar">
+        {/* Barre de recherche */}
+        <input
+          type="search"
+          placeholder="Rechercher par matricule, type, agence..."
+          value={rechercheTexte}
+          onChange={(e) => setRechercheTexte(e.target.value)}
+          style={{ flex: 1, minWidth: "200px" }}
+        />
+
+        {/* Filtre par agence */}
         <select value={filtreAgence} onChange={(e) => setFiltreAgence(e.target.value)}>
           <option value="">Toutes les agences</option>
           {agences.map((a) => (
@@ -146,7 +185,7 @@ export default function Vehicules() {
       </div>
 
       <DataTable<Vehicule>
-        rows={liste}
+        rows={listeFiltree}
         columns={[
           { header: "Matricule", render: (v) => v.matricule },
           { header: "Type", render: (v) => LABELS_TYPE_VEHICULE[v.type_vehicule] },
@@ -155,12 +194,13 @@ export default function Vehicules() {
           { header: "Remarque", render: (v) => v.remarque || "—" },
           {
             header: "Actions",
-            render: (v) => estAdmin && (
-              <>
-                <button className="btn-link" onClick={() => editer(v)}>Modifier</button>
-                <button className="btn-link" onClick={() => supprimer(v)}>Supprimer</button>
-              </>
-            ),
+            render: (v) =>
+              estAdmin && (
+                <>
+                  <button className="btn-link" onClick={() => editer(v)}>Modifier</button>
+                  <button className="btn-link" onClick={() => supprimer(v)}>Supprimer</button>
+                </>
+              ),
           },
         ]}
       />
