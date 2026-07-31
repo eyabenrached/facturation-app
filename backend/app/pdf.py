@@ -1,9 +1,10 @@
 import io
+import os
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
 from reportlab.lib import colors
 from reportlab.platypus import (
-    SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
 )
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
@@ -13,6 +14,14 @@ from .num2words_fr import montant_ttc_en_lettres
 
 def generer_facture_pdf(facture: models.Facture) -> bytes:
     buffer = io.BytesIO()
+    # Detect logo early so we can reserve a top margin that prevents the
+    # flowables from being placed beside the image.
+    page_width, page_height = A4
+    logo_path = os.path.join(os.path.dirname(__file__), "static", "logo.png")
+    logo_exists = os.path.exists(logo_path)
+    logo_w = 40 * mm
+    logo_h = 40 * mm
+
     doc = SimpleDocTemplate(
         buffer, pagesize=A4,
         topMargin=20 * mm, bottomMargin=20 * mm,
@@ -25,13 +34,42 @@ def generer_facture_pdf(facture: models.Facture) -> bytes:
     normal = styles["Normal"]
 
     elements = []
-    elements.append(Paragraph("FACTURE", title_style))
-    elements.append(Spacer(1, 4 * mm))
-    elements.append(Paragraph(f"N° {facture.numero_facture}", normal))
-    elements.append(Paragraph(f"Période : du {facture.date_debut.strftime('%d/%m/%Y')} au {facture.date_fin.strftime('%d/%m/%Y')}", normal))
-    elements.append(Paragraph(f"Client : {facture.client.nom_societe}", normal))
-    elements.append(Paragraph(f"Responsable : {facture.client.responsable}", normal))
-    elements.append(Spacer(1, 8 * mm))
+
+    # We'll build a header flowable: a two-column table with the logo at left
+    # and the title + metadata at right so the text appears next to the image.
+
+    # Main title and meta information
+    if logo_exists:
+        usable_width = page_width - doc.leftMargin - doc.rightMargin
+        col1_w = logo_w + 4 * mm
+        col2_w = usable_width - col1_w
+
+        left_img = Image(logo_path, width=logo_w, height=logo_h)
+
+        right_flow = []
+        right_flow.append(Paragraph("FACTURE", title_style))
+        right_flow.append(Spacer(1, 4 * mm))
+        right_flow.append(Paragraph(f"N° {facture.numero_facture}", normal))
+        right_flow.append(Paragraph(f"Période : du {facture.date_debut.strftime('%d/%m/%Y')} au {facture.date_fin.strftime('%d/%m/%Y')}", normal))
+        right_flow.append(Paragraph(f"Client : {facture.client.nom_societe}", normal))
+        right_flow.append(Paragraph(f"Responsable : {facture.client.responsable}", normal))
+
+        header_table = Table([[left_img, right_flow]], colWidths=[col1_w, col2_w])
+        header_table.setStyle(TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 0),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+        ]))
+        elements.append(header_table)
+        elements.append(Spacer(1, 6 * mm))
+    else:
+        elements.append(Paragraph("FACTURE", title_style))
+        elements.append(Spacer(1, 4 * mm))
+        elements.append(Paragraph(f"N° {facture.numero_facture}", normal))
+        elements.append(Paragraph(f"Période : du {facture.date_debut.strftime('%d/%m/%Y')} au {facture.date_fin.strftime('%d/%m/%Y')}", normal))
+        elements.append(Paragraph(f"Client : {facture.client.nom_societe}", normal))
+        elements.append(Paragraph(f"Responsable : {facture.client.responsable}", normal))
+        elements.append(Spacer(1, 8 * mm))
 
     data = [["Date", "Heure", "Circuit", "Prix (TND)"]]
     for m in facture.mouvements:
@@ -79,7 +117,6 @@ def generer_facture_pdf(facture: models.Facture) -> bytes:
         arrete_style,
     ))
     elements.append(Spacer(1, 6 * mm))
-    elements.append(Paragraph(f"Statut : {facture.statut.value.upper()}", normal))
 
     doc.build(elements)
     return buffer.getvalue()

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { api } from "../api";
 import { Circuit, Client, TarifClient, TypeVehicule, LABELS_TYPE_VEHICULE } from "../types";
 import { DataTable } from "../components/DataTable";
@@ -31,6 +31,7 @@ export default function Circuits() {
   const [enEdition, setEnEdition] = useState<Circuit | null>(null);
   const [form, setForm] = useState(VIDE);
   const [erreur, setErreur] = useState("");
+  const [rechercheTexte, setRechercheTexte] = useState<string>("");
 
   // ---------- Tarifs spécifiques (client + circuit + heure) ----------
   const [circuitTarifs, setCircuitTarifs] = useState<Circuit | null>(null);
@@ -46,6 +47,18 @@ export default function Circuits() {
     charger();
     api.get<Client[]>("/clients/").then(setClients);
   }, []);
+
+  // Filtrage côté client sur départ, arrivée et prix
+  const listeFiltree = useMemo(() => {
+    const terme = rechercheTexte.trim().toLowerCase();
+    if (!terme) return liste;
+    return liste.filter((c) =>
+      c.point_depart.toLowerCase().includes(terme) ||
+      c.point_arrivee.toLowerCase().includes(terme) ||
+      String(c.prix_jour).includes(terme) ||
+      String(c.prix_nuit).includes(terme)
+    );
+  }, [liste, rechercheTexte]);
 
   function ouvrirAjout() {
     setEnEdition(null);
@@ -131,8 +144,19 @@ export default function Circuits() {
         {estAdmin && <button className="btn" onClick={ouvrirAjout}>+ Ajouter un circuit</button>}
       </div>
 
+      {/* Barre de recherche */}
+      <div className="toolbar">
+        <input
+          type="search"
+          placeholder="Rechercher par départ, arrivée ou prix..."
+          value={rechercheTexte}
+          onChange={(e) => setRechercheTexte(e.target.value)}
+          style={{ flex: 1, minWidth: "200px" }}
+        />
+      </div>
+
       <DataTable<Circuit>
-        rows={liste}
+        rows={listeFiltree}
         columns={[
           { header: "Départ", render: (c) => c.point_depart },
           { header: "Arrivée", render: (c) => c.point_arrivee },
@@ -173,11 +197,21 @@ export default function Circuits() {
           <div className="form-grid">
             <div className="form-field">
               <label>Prix de jour (06h–19h)</label>
-              <input type="number" step="0.001" value={form.prix_jour} onChange={(e) => setForm({ ...form, prix_jour: Number(e.target.value) })} />
+              <input
+                type="number"
+                step="0.001"
+                value={form.prix_jour}
+                onChange={(e) => setForm({ ...form, prix_jour: Number(e.target.value) })}
+              />
             </div>
             <div className="form-field">
               <label>Prix de nuit</label>
-              <input type="number" step="0.001" value={form.prix_nuit} onChange={(e) => setForm({ ...form, prix_nuit: Number(e.target.value) })} />
+              <input
+                type="number"
+                step="0.001"
+                value={form.prix_nuit}
+                onChange={(e) => setForm({ ...form, prix_nuit: Number(e.target.value) })}
+              />
             </div>
           </div>
           <p style={{ fontSize: "0.78rem", color: "#6b7280" }}>
@@ -224,7 +258,11 @@ export default function Circuits() {
                     <td>{t.type_vehicule ? LABELS_TYPE_VEHICULE[t.type_vehicule] : "Tous types"}</td>
                     <td>{t.heure_debut && t.heure_fin ? `${t.heure_debut} – ${t.heure_fin}` : "Toute heure"}</td>
                     <td>{t.prix} TND</td>
-                    <td>{estAdmin && <button className="btn-link" onClick={() => supprimerTarif(t)}>Supprimer</button>}</td>
+                    <td>
+                      {estAdmin && (
+                        <button className="btn-link" onClick={() => supprimerTarif(t)}>Supprimer</button>
+                      )}
+                    </td>
                   </tr>
                 ))
               )}
@@ -242,7 +280,9 @@ export default function Circuits() {
                     onChange={(e) => setFormTarif({ ...formTarif, client_id: Number(e.target.value) })}
                   >
                     <option value="">— Sélectionner —</option>
-                    {clients.map((c) => <option key={c.id} value={c.id}>{c.nom_societe}</option>)}
+                    {clients.map((c) => (
+                      <option key={c.id} value={c.id}>{c.nom_societe}</option>
+                    ))}
                   </select>
                 </div>
                 <div className="form-field">
