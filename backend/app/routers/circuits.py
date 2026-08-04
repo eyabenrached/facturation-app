@@ -72,3 +72,16 @@ def supprimer_tarif(tarif_id: int, db: Session = Depends(get_db)):
         raise HTTPException(404, "Tarif introuvable.")
     db.delete(obj)
     db.commit()
+@router.put("/tarifs/{tarif_id}", response_model=schemas.TarifClientOut, dependencies=[Depends(exiger_admin)])
+def modifier_tarif(tarif_id: int, payload: schemas.TarifClientCreate, db: Session = Depends(get_db)):
+    obj = db.query(models.TarifClient).get(tarif_id)
+    if not obj:
+        raise HTTPException(404, "Tarif introuvable.")
+    
+    # Mettre à jour les champs
+    for k, v in payload.model_dump().items():
+        setattr(obj, k, v)
+    
+    db.commit()
+    db.refresh(obj)
+    return obj
