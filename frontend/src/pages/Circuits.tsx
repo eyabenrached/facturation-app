@@ -38,6 +38,10 @@ export default function Circuits() {
   const [tarifs, setTarifs] = useState<TarifClient[]>([]);
   const [formTarif, setFormTarif] = useState(VIDE_TARIF);
   const [erreurTarif, setErreurTarif] = useState("");
+  
+  // Nouveaux états pour la modification d'un tarif
+  const [tarifEnEdition, setTarifEnEdition] = useState<TarifClient | null>(null);
+  const [modalTarifOuvert, setModalTarifOuvert] = useState(false);
 
   async function charger() {
     setListe(await api.get<Circuit[]>("/circuits/"));
@@ -134,6 +138,46 @@ export default function Circuits() {
     await api.delete(`/circuits/tarifs/${t.id}`);
     if (circuitTarifs) {
       setTarifs(await api.get<TarifClient[]>(`/circuits/tarifs/?circuit_id=${circuitTarifs.id}`));
+    }
+  }
+
+  // Nouvelle fonction pour ouvrir la modification d'un tarif
+  function ouvrirEditionTarif(t: TarifClient) {
+    setTarifEnEdition(t);
+    setFormTarif({
+      client_id: t.client_id,
+      type_vehicule: t.type_vehicule || "",
+      heure_debut: t.heure_debut || "",
+      heure_fin: t.heure_fin || "",
+      prix: t.prix,
+    });
+    setErreurTarif("");
+    setModalTarifOuvert(true);
+  }
+
+  // Nouvelle fonction pour enregistrer la modification d'un tarif
+  async function enregistrerTarif() {
+    if (!tarifEnEdition || !circuitTarifs) return;
+    setErreurTarif("");
+    if (!formTarif.client_id) {
+      setErreurTarif("Merci de sélectionner un client.");
+      return;
+    }
+    try {
+      await api.put(`/circuits/tarifs/${tarifEnEdition.id}`, {
+        client_id: formTarif.client_id,
+        circuit_id: circuitTarifs.id,
+        type_vehicule: formTarif.type_vehicule || null,
+        heure_debut: formTarif.heure_debut || null,
+        heure_fin: formTarif.heure_fin || null,
+        prix: formTarif.prix,
+      });
+      setModalTarifOuvert(false);
+      setTarifEnEdition(null);
+      setFormTarif(VIDE_TARIF);
+      setTarifs(await api.get<TarifClient[]>(`/circuits/tarifs/?circuit_id=${circuitTarifs.id}`));
+    } catch (e) {
+      setErreurTarif((e as Error).message);
     }
   }
 
@@ -260,7 +304,10 @@ export default function Circuits() {
                     <td>{t.prix} TND</td>
                     <td>
                       {estAdmin && (
-                        <button className="btn-link" onClick={() => supprimerTarif(t)}>Supprimer</button>
+                        <>
+                          <button className="btn-link" onClick={() => ouvrirEditionTarif(t)}>Modifier</button>
+                          <button className="btn-link" onClick={() => supprimerTarif(t)}>Supprimer</button>
+                        </>
                       )}
                     </td>
                   </tr>
@@ -331,6 +378,89 @@ export default function Circuits() {
           <div className="form-actions">
             <button className="btn secondary" onClick={() => setCircuitTarifs(null)}>Fermer</button>
             {estAdmin && <button className="btn" onClick={ajouterTarif}>+ Ajouter ce tarif</button>}
+          </div>
+        </Modal>
+      )}
+
+      {/* Modal de modification d'un tarif */}
+      {modalTarifOuvert && tarifEnEdition && (
+        <Modal
+          title={`Modifier le tarif — ${clients.find(c => c.id === tarifEnEdition.client_id)?.nom_societe || "Client"}`}
+          onClose={() => {
+            setModalTarifOuvert(false);
+            setTarifEnEdition(null);
+            setFormTarif(VIDE_TARIF);
+          }}
+        >
+          {erreurTarif && <p className="error-msg">{erreurTarif}</p>}
+          
+          <div className="form-grid">
+            <div className="form-field">
+              <label>Client</label>
+              <select
+                value={formTarif.client_id || ""}
+                onChange={(e) => setFormTarif({ ...formTarif, client_id: Number(e.target.value) })}
+              >
+                <option value="">— Sélectionner —</option>
+                {clients.map((c) => (
+                  <option key={c.id} value={c.id}>{c.nom_societe}</option>
+                ))}
+              </select>
+            </div>
+            <div className="form-field">
+              <label>Type de véhicule (optionnel)</label>
+              <select
+                value={formTarif.type_vehicule}
+                onChange={(e) => setFormTarif({ ...formTarif, type_vehicule: e.target.value as TypeVehicule | "" })}
+              >
+                <option value="">Tous types</option>
+                {TYPES_VEHICULE.map((t) => (
+                  <option key={t} value={t}>{LABELS_TYPE_VEHICULE[t]}</option>
+                ))}
+              </select>
+            </div>
+            <div className="form-field">
+              <label>Prix spécifique (TND)</label>
+              <input
+                type="number"
+                step="0.001"
+                value={formTarif.prix}
+                onChange={(e) => setFormTarif({ ...formTarif, prix: Number(e.target.value) })}
+              />
+            </div>
+            <div className="form-field">
+              <label>Heure début (optionnel)</label>
+              <input
+                type="time"
+                value={formTarif.heure_debut}
+                onChange={(e) => setFormTarif({ ...formTarif, heure_debut: e.target.value })}
+              />
+            </div>
+            <div className="form-field">
+              <label>Heure fin (optionnel)</label>
+              <input
+                type="time"
+                value={formTarif.heure_fin}
+                onChange={(e) => setFormTarif({ ...formTarif, heure_fin: e.target.value })}
+              />
+            </div>
+          </div>
+          <p style={{ fontSize: "0.78rem", color: "#6b7280", marginTop: "0.5rem" }}>
+            Laissez les heures vides pour un tarif valable à toute heure pour ce client.
+          </p>
+          
+          <div className="form-actions">
+            <button 
+              className="btn secondary" 
+              onClick={() => {
+                setModalTarifOuvert(false);
+                setTarifEnEdition(null);
+                setFormTarif(VIDE_TARIF);
+              }}
+            >
+              Annuler
+            </button>
+            <button className="btn" onClick={enregistrerTarif}>Enregistrer les modifications</button>
           </div>
         </Modal>
       )}
