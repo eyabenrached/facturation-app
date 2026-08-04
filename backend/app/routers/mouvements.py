@@ -23,7 +23,8 @@ def liste_mouvements(
         joinedload(models.Mouvement.client),
         joinedload(models.Mouvement.circuit),
         joinedload(models.Mouvement.chauffeur),
-        joinedload(models.Mouvement.vehicule),
+        joinedload(models.Mouvement.vehicule).joinedload(models.Vehicule.agence),
+        joinedload(models.Mouvement.transporteur),
     )
     if date_du:
         q = q.filter(models.Mouvement.date >= date_du)
@@ -59,6 +60,7 @@ def creer_mouvement(payload: schemas.MouvementCreate, db: Session = Depends(get_
         circuit_id=payload.circuit_id,
         chauffeur_id=payload.chauffeur_id,
         vehicule_id=payload.vehicule_id,
+        transporteur_id=payload.transporteur_id,
         nb_personnes=payload.nb_personnes,
         prix_applique=prix,
     )
@@ -91,6 +93,7 @@ def modifier_mouvement(mouvement_id: int, payload: schemas.MouvementCreate, db: 
     obj.circuit_id = payload.circuit_id
     obj.chauffeur_id = payload.chauffeur_id
     obj.vehicule_id = payload.vehicule_id
+    obj.transporteur_id = payload.transporteur_id
     obj.nb_personnes = payload.nb_personnes
     obj.prix_applique = prix
 

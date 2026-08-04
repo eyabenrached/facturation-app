@@ -81,6 +81,7 @@ export interface Mouvement {
   circuit_id: number;
   chauffeur_id: number | null;
   vehicule_id: number | null;
+  transporteur_id: number | null;
   nb_personnes: number | null;
   prix_applique: number;
   facture_id: number | null;
@@ -88,6 +89,7 @@ export interface Mouvement {
   circuit?: Circuit;
   chauffeur?: Chauffeur;
   vehicule?: Vehicule;
+  transporteur?: Agence;
 }
 
 export type StatutFacture = "payee" | "impayee" | "partielle";

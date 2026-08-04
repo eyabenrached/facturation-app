@@ -141,6 +141,7 @@ class Mouvement(Base):
     circuit_id: Mapped[int] = mapped_column(ForeignKey("circuits.id"))
     chauffeur_id: Mapped[int | None] = mapped_column(ForeignKey("chauffeurs.id"), nullable=True)
     vehicule_id: Mapped[int | None] = mapped_column(ForeignKey("vehicules.id"), nullable=True)
+    transporteur_id: Mapped[int | None] = mapped_column(ForeignKey("agences.id"), nullable=True)
     nb_personnes: Mapped[int | None] = mapped_column(nullable=True)
     prix_applique: Mapped[float] = mapped_column(Numeric(10, 3))
     facture_id: Mapped[int | None] = mapped_column(ForeignKey("factures.id"), nullable=True)
@@ -149,6 +150,7 @@ class Mouvement(Base):
     circuit: Mapped["Circuit"] = relationship(back_populates="mouvements")
     chauffeur: Mapped["Chauffeur | None"] = relationship(back_populates="mouvements")
     vehicule: Mapped["Vehicule | None"] = relationship(back_populates="mouvements")
+    transporteur: Mapped["Agence | None"] = relationship(foreign_keys=[transporteur_id])
     facture: Mapped["Facture | None"] = relationship(back_populates="mouvements")
 
 

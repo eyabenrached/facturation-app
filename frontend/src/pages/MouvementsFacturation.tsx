@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, pdfUrl } from "../api";
-import { Mouvement, Client, Circuit, Chauffeur, Vehicule, Facture, StatutFacture, LABELS_TYPE_VEHICULE } from "../types";
+import { Mouvement, Client, Circuit, Chauffeur, Vehicule, Agence, Facture, StatutFacture, LABELS_TYPE_VEHICULE } from "../types";
 import { DataTable } from "../components/DataTable";
 import { Modal } from "../components/Modal";
 
@@ -11,6 +11,7 @@ const VIDE_MOUVEMENT = {
   circuit_id: 0,
   chauffeur_id: null as number | null,
   vehicule_id: null as number | null,
+  transporteur_id: null as number | null,
   nb_personnes: null as number | null,
 };
 
@@ -25,6 +26,7 @@ export default function MouvementsFacturation() {
   const [circuits, setCircuits] = useState<Circuit[]>([]);
   const [chauffeurs, setChauffeurs] = useState<Chauffeur[]>([]);
   const [vehicules, setVehicules] = useState<Vehicule[]>([]);
+  const [agences, setAgences] = useState<Agence[]>([]);
 
   // Filtres
   const [dateDu, setDateDu] = useState("");
@@ -52,6 +54,7 @@ export default function MouvementsFacturation() {
     api.get<Circuit[]>("/circuits/").then(setCircuits);
     api.get<Chauffeur[]>("/chauffeurs/").then(setChauffeurs);
     api.get<Vehicule[]>("/vehicules/").then(setVehicules);
+    api.get<Agence[]>("/agences/").then(setAgences);
   }, []);
 
   async function chargerMouvements() {
@@ -92,6 +95,7 @@ export default function MouvementsFacturation() {
       circuit_id: m.circuit_id,
       chauffeur_id: m.chauffeur_id,
       vehicule_id: m.vehicule_id,
+      transporteur_id: m.transporteur_id,
       nb_personnes: m.nb_personnes,
     });
     setPrixSuggere(m.prix_applique);
@@ -110,6 +114,7 @@ export default function MouvementsFacturation() {
       circuit_id: m.circuit_id,
       chauffeur_id: m.chauffeur_id,
       vehicule_id: m.vehicule_id,
+      transporteur_id: m.transporteur_id,
       nb_personnes: m.nb_personnes,
     });
     setPrixSuggere(m.prix_applique);
@@ -259,6 +264,7 @@ export default function MouvementsFacturation() {
           { header: "Heure", render: (m) => m.heure },
           { header: "Client", render: (m) => m.client?.nom_societe || "—" },
           { header: "Circuit", render: (m) => (m.circuit ? `${m.circuit.point_depart} → ${m.circuit.point_arrivee}` : "—") },
+          { header: "Transporteur", render: (m) => m.transporteur?.nom_agence || "—" },
           { header: "Chauffeur", render: (m) => (m.chauffeur ? `${m.chauffeur.prenom} ${m.chauffeur.nom}` : "—") },
           { header: "Véhicule", render: (m) => m.vehicule?.matricule || "—" },
           { header: "Nb pers.", render: (m) => m.nb_personnes ?? "—" },
@@ -351,6 +357,13 @@ export default function MouvementsFacturation() {
               <select value={formMvt.circuit_id || ""} onChange={(e) => majFormMvt({ circuit_id: Number(e.target.value) })}>
                 <option value="">— Sélectionner —</option>
                 {circuits.map((c) => <option key={c.id} value={c.id}>{c.point_depart} → {c.point_arrivee}</option>)}
+              </select>
+            </div>
+            <div className="form-field">
+              <label>Transporteur (optionnel)</label>
+              <select value={formMvt.transporteur_id || ""} onChange={(e) => setFormMvt({ ...formMvt, transporteur_id: e.target.value ? Number(e.target.value) : null })}>
+                <option value="">—</option>
+                {agences.map((a) => <option key={a.id} value={a.id}>{a.nom_agence}</option>)}
               </select>
             </div>
             <div className="form-field">

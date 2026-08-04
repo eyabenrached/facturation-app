@@ -149,6 +149,7 @@ class MouvementBase(BaseModel):
     circuit_id: int
     chauffeur_id: int | None = None
     vehicule_id: int | None = None
+    transporteur_id: int | None = None
     nb_personnes: int | None = None
 
 
@@ -166,6 +167,7 @@ class MouvementOut(MouvementBase):
     circuit: CircuitOut | None = None
     chauffeur: ChauffeurOut | None = None
     vehicule: VehiculeOut | None = None
+    transporteur: AgenceOut | None = None
 
 
 # ---------- Factures ----------
