@@ -1,0 +1,1 @@
+UPDATE circuits SET prix_jour = 0, prix_nuit = 0;

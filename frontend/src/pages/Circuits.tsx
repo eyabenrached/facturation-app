@@ -33,15 +33,20 @@ export default function Circuits() {
   const [erreur, setErreur] = useState("");
   const [rechercheTexte, setRechercheTexte] = useState<string>("");
 
-  // ---------- Tarifs spécifiques (client + circuit + heure) ----------
+  // ---------- Tarifs spécifiques (client + circuit + heure) — vue par circuit ----------
   const [circuitTarifs, setCircuitTarifs] = useState<Circuit | null>(null);
   const [tarifs, setTarifs] = useState<TarifClient[]>([]);
   const [formTarif, setFormTarif] = useState(VIDE_TARIF);
   const [erreurTarif, setErreurTarif] = useState("");
-  
-  // Nouveaux états pour la modification d'un tarif
+
   const [tarifEnEdition, setTarifEnEdition] = useState<TarifClient | null>(null);
   const [modalTarifOuvert, setModalTarifOuvert] = useState(false);
+
+  // ---------- Liste globale de tous les tarifs (tous circuits confondus) ----------
+  const [modalTousOuvert, setModalTousOuvert] = useState(false);
+  const [tousTarifs, setTousTarifs] = useState<TarifClient[]>([]);
+  const [filtreClientTous, setFiltreClientTous] = useState<string>("");
+  const [filtreCircuitTous, setFiltreCircuitTous] = useState<string>("");
 
   async function charger() {
     setListe(await api.get<Circuit[]>("/circuits/"));
@@ -63,6 +68,15 @@ export default function Circuits() {
       String(c.prix_nuit).includes(terme)
     );
   }, [liste, rechercheTexte]);
+
+  function circuitLabel(circuitId: number) {
+    const c = liste.find((x) => x.id === circuitId);
+    return c ? `${c.point_depart} → ${c.point_arrivee}` : `#${circuitId}`;
+  }
+
+  function nomClient(clientId: number) {
+    return clients.find((c) => c.id === clientId)?.nom_societe || `#${clientId}`;
+  }
 
   function ouvrirAjout() {
     setEnEdition(null);
@@ -139,9 +153,11 @@ export default function Circuits() {
     if (circuitTarifs) {
       setTarifs(await api.get<TarifClient[]>(`/circuits/tarifs/?circuit_id=${circuitTarifs.id}`));
     }
+    if (modalTousOuvert) {
+      chargerTousTarifs();
+    }
   }
 
-  // Nouvelle fonction pour ouvrir la modification d'un tarif
   function ouvrirEditionTarif(t: TarifClient) {
     setTarifEnEdition(t);
     setFormTarif({
@@ -155,9 +171,8 @@ export default function Circuits() {
     setModalTarifOuvert(true);
   }
 
-  // Nouvelle fonction pour enregistrer la modification d'un tarif
   async function enregistrerTarif() {
-    if (!tarifEnEdition || !circuitTarifs) return;
+    if (!tarifEnEdition) return;
     setErreurTarif("");
     if (!formTarif.client_id) {
       setErreurTarif("Merci de sélectionner un client.");
@@ -166,7 +181,7 @@ export default function Circuits() {
     try {
       await api.put(`/circuits/tarifs/${tarifEnEdition.id}`, {
         client_id: formTarif.client_id,
-        circuit_id: circuitTarifs.id,
+        circuit_id: tarifEnEdition.circuit_id,
         type_vehicule: formTarif.type_vehicule || null,
         heure_debut: formTarif.heure_debut || null,
         heure_fin: formTarif.heure_fin || null,
@@ -175,17 +190,45 @@ export default function Circuits() {
       setModalTarifOuvert(false);
       setTarifEnEdition(null);
       setFormTarif(VIDE_TARIF);
-      setTarifs(await api.get<TarifClient[]>(`/circuits/tarifs/?circuit_id=${circuitTarifs.id}`));
+      if (circuitTarifs) {
+        setTarifs(await api.get<TarifClient[]>(`/circuits/tarifs/?circuit_id=${circuitTarifs.id}`));
+      }
+      if (modalTousOuvert) {
+        chargerTousTarifs();
+      }
     } catch (e) {
       setErreurTarif((e as Error).message);
     }
   }
 
+  // ---------- Liste globale ----------
+  async function chargerTousTarifs() {
+    const params = new URLSearchParams();
+    if (filtreClientTous) params.set("client_id", filtreClientTous);
+    if (filtreCircuitTous) params.set("circuit_id", filtreCircuitTous);
+    setTousTarifs(await api.get<TarifClient[]>(`/circuits/tarifs/?${params.toString()}`));
+  }
+
+  async function ouvrirListeTarifs() {
+    setModalTousOuvert(true);
+    await chargerTousTarifs();
+  }
+
+  useEffect(() => {
+    if (modalTousOuvert) {
+      chargerTousTarifs();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtreClientTous, filtreCircuitTous]);
+
   return (
     <div>
       <div className="page-header">
         <h2>Circuits</h2>
-        {estAdmin && <button className="btn" onClick={ouvrirAjout}>+ Ajouter un circuit</button>}
+        <div style={{ display: "flex", gap: "0.6rem" }}>
+          <button className="btn secondary" onClick={ouvrirListeTarifs}>Liste des tarifs</button>
+          {estAdmin && <button className="btn" onClick={ouvrirAjout}>+ Ajouter un circuit</button>}
+        </div>
       </div>
 
       {/* Barre de recherche */}
@@ -298,7 +341,7 @@ export default function Circuits() {
               ) : (
                 tarifs.map((t) => (
                   <tr key={t.id}>
-                    <td>{clients.find((c) => c.id === t.client_id)?.nom_societe || t.client_id}</td>
+                    <td>{nomClient(t.client_id)}</td>
                     <td>{t.type_vehicule ? LABELS_TYPE_VEHICULE[t.type_vehicule] : "Tous types"}</td>
                     <td>{t.heure_debut && t.heure_fin ? `${t.heure_debut} – ${t.heure_fin}` : "Toute heure"}</td>
                     <td>{t.prix} TND</td>
@@ -318,7 +361,7 @@ export default function Circuits() {
 
           {estAdmin && (
             <>
-              <h4 style={{ marginBottom: "0.5rem", color: "#1f3864" }}>Ajouter un tarif</h4>
+              <h4 style={{ marginBottom: "0.5rem", color: "#1f3858" }}>Ajouter un tarif</h4>
               <div className="form-grid">
                 <div className="form-field">
                   <label>Client</label>
@@ -382,10 +425,10 @@ export default function Circuits() {
         </Modal>
       )}
 
-      {/* Modal de modification d'un tarif */}
+      {/* Modal de modification d'un tarif (accessible depuis la vue par circuit ou la liste globale) */}
       {modalTarifOuvert && tarifEnEdition && (
         <Modal
-          title={`Modifier le tarif — ${clients.find(c => c.id === tarifEnEdition.client_id)?.nom_societe || "Client"}`}
+          title={`Modifier le tarif — ${nomClient(tarifEnEdition.client_id)}`}
           onClose={() => {
             setModalTarifOuvert(false);
             setTarifEnEdition(null);
@@ -393,7 +436,11 @@ export default function Circuits() {
           }}
         >
           {erreurTarif && <p className="error-msg">{erreurTarif}</p>}
-          
+
+          <p style={{ fontSize: "0.78rem", color: "#6b7280", marginTop: 0 }}>
+            Circuit : {circuitLabel(tarifEnEdition.circuit_id)}
+          </p>
+
           <div className="form-grid">
             <div className="form-field">
               <label>Client</label>
@@ -448,10 +495,10 @@ export default function Circuits() {
           <p style={{ fontSize: "0.78rem", color: "#6b7280", marginTop: "0.5rem" }}>
             Laissez les heures vides pour un tarif valable à toute heure pour ce client.
           </p>
-          
+
           <div className="form-actions">
-            <button 
-              className="btn secondary" 
+            <button
+              className="btn secondary"
               onClick={() => {
                 setModalTarifOuvert(false);
                 setTarifEnEdition(null);
@@ -461,6 +508,70 @@ export default function Circuits() {
               Annuler
             </button>
             <button className="btn" onClick={enregistrerTarif}>Enregistrer les modifications</button>
+          </div>
+        </Modal>
+      )}
+
+      {/* Modal : liste globale de tous les tarifs clients, tous circuits confondus */}
+      {modalTousOuvert && (
+        <Modal title="Liste des tarifs clients" onClose={() => setModalTousOuvert(false)}>
+          <div className="form-grid" style={{ marginBottom: "1rem" }}>
+            <div className="form-field">
+              <label>Filtrer par client</label>
+              <select value={filtreClientTous} onChange={(e) => setFiltreClientTous(e.target.value)}>
+                <option value="">Tous les clients</option>
+                {clients.map((c) => (
+                  <option key={c.id} value={c.id}>{c.nom_societe}</option>
+                ))}
+              </select>
+            </div>
+            <div className="form-field">
+              <label>Filtrer par circuit</label>
+              <select value={filtreCircuitTous} onChange={(e) => setFiltreCircuitTous(e.target.value)}>
+                <option value="">Tous les circuits</option>
+                {liste.map((c) => (
+                  <option key={c.id} value={c.id}>{c.point_depart} → {c.point_arrivee}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <table className="data-table" style={{ marginBottom: "1rem" }}>
+            <thead>
+              <tr>
+                <th>Client</th>
+                <th>Circuit</th>
+                <th>Type véhicule</th>
+                <th>Créneau horaire</th>
+                <th>Prix</th>
+                {estAdmin && <th></th>}
+              </tr>
+            </thead>
+            <tbody>
+              {tousTarifs.length === 0 ? (
+                <tr><td colSpan={estAdmin ? 6 : 5} className="empty-cell">Aucun tarif spécifique trouvé.</td></tr>
+              ) : (
+                tousTarifs.map((t) => (
+                  <tr key={t.id}>
+                    <td>{nomClient(t.client_id)}</td>
+                    <td>{circuitLabel(t.circuit_id)}</td>
+                    <td>{t.type_vehicule ? LABELS_TYPE_VEHICULE[t.type_vehicule] : "Tous types"}</td>
+                    <td>{t.heure_debut && t.heure_fin ? `${t.heure_debut} – ${t.heure_fin}` : "Toute heure"}</td>
+                    <td>{t.prix} TND</td>
+                    {estAdmin && (
+                      <td>
+                        <button className="btn-link" onClick={() => ouvrirEditionTarif(t)}>Modifier</button>
+                        <button className="btn-link" onClick={() => supprimerTarif(t)}>Supprimer</button>
+                      </td>
+                    )}
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+
+          <div className="form-actions">
+            <button className="btn secondary" onClick={() => setModalTousOuvert(false)}>Fermer</button>
           </div>
         </Modal>
       )}
