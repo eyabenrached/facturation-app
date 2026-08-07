@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import { api, pdfUrl } from "../api";
-import { Mouvement, Client, Circuit, Chauffeur, Vehicule, Agence, Facture, StatutFacture, LABELS_TYPE_VEHICULE } from "../types";
+import {
+  Mouvement, Client, Circuit, Chauffeur, Vehicule, Agence, Facture, StatutFacture,
+  LABELS_TYPE_VEHICULE,
+} from "../types";
 import { DataTable } from "../components/DataTable";
 import { Modal } from "../components/Modal";
 
@@ -37,7 +40,7 @@ export default function MouvementsFacturation() {
   const [mouvements, setMouvements] = useState<Mouvement[]>([]);
   const [factures, setFactures] = useState<Facture[]>([]);
 
-  // Modal ajout mouvement
+  // Modal ajout/édition mouvement
   const [modalMvtOuvert, setModalMvtOuvert] = useState(false);
   const [mouvementEnEdition, setMouvementEnEdition] = useState<Mouvement | null>(null);
   const [formMvt, setFormMvt] = useState(VIDE_MOUVEMENT);
@@ -75,9 +78,10 @@ export default function MouvementsFacturation() {
   useEffect(() => {
     chargerMouvements();
     chargerFactures();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dateDu, dateAu, filtreClient, filtreStatutMvt]);
 
-  // ---------- Ajout d'un mouvement ----------
+  // ---------- Ajout / édition / duplication d'un mouvement ----------
   function ouvrirAjoutMouvement() {
     setMouvementEnEdition(null);
     setFormMvt(VIDE_MOUVEMENT);
@@ -139,6 +143,8 @@ export default function MouvementsFacturation() {
   function majFormMvt(champs: Partial<typeof formMvt>) {
     const next = { ...formMvt, ...champs };
     setFormMvt(next);
+    // Recalcule une suggestion de prix quand un critère de tarification change.
+    // Le prix reste ensuite modifiable à la main juste en dessous avant validation.
     rafraichirPrixSuggere(next);
   }
 
@@ -289,7 +295,7 @@ export default function MouvementsFacturation() {
 
       {filtreClient && dateDu && dateAu && (
         <div className="card" style={{ marginTop: "1.25rem" }}>
-          <h3 style={{ marginTop: 0, color: "#1f3864" }}>
+          <h3 style={{ marginTop: 0 }}>
             Récapitulatif — {client?.nom_societe} ({dateDu} → {dateAu})
           </h3>
           <div className="recap-grid">
@@ -305,7 +311,7 @@ export default function MouvementsFacturation() {
         </div>
       )}
 
-      <h3 style={{ marginTop: "2rem", color: "#1f3864" }}>Factures</h3>
+      <h3 style={{ marginTop: "2rem" }}>Factures</h3>
       <DataTable<Facture>
         rows={factures}
         columns={[
@@ -332,7 +338,7 @@ export default function MouvementsFacturation() {
         ]}
       />
 
-      {/* Modal : ajout d'un mouvement */}
+      {/* Modal : ajout / édition / duplication d'un mouvement */}
       {modalMvtOuvert && (
         <Modal title={mouvementEnEdition ? "Modifier le mouvement" : "Nouveau mouvement"} onClose={() => setModalMvtOuvert(false)}>
           {erreurMvt && <p className="error-msg">{erreurMvt}</p>}
@@ -368,7 +374,7 @@ export default function MouvementsFacturation() {
             </div>
             <div className="form-field">
               <label>Chauffeur (optionnel)</label>
-              <select value={formMvt.chauffeur_id || ""} onChange={(e) => majFormMvt({ chauffeur_id: e.target.value ? Number(e.target.value) : null })}>
+              <select value={formMvt.chauffeur_id || ""} onChange={(e) => setFormMvt({ ...formMvt, chauffeur_id: e.target.value ? Number(e.target.value) : null })}>
                 <option value="">—</option>
                 {chauffeurs.map((c) => <option key={c.id} value={c.id}>{c.prenom} {c.nom}</option>)}
               </select>
@@ -394,10 +400,17 @@ export default function MouvementsFacturation() {
               />
             </div>
           </div>
-          <div className="recap-box" style={{ marginBottom: "1rem" }}>
-            <div className="label">Prix calculé automatiquement</div>
-            <div className="value">{prixSuggere !== null ? `${prixSuggere} TND` : "—"}</div>
+
+          <div className="form-field" style={{ marginBottom: "1rem" }}>
+            <label>Prix (TND) — calculé automatiquement, modifiable avant validation</label>
+            <input
+              type="number"
+              step="0.001"
+              value={prixSuggere ?? ""}
+              onChange={(e) => setPrixSuggere(e.target.value ? Number(e.target.value) : null)}
+            />
           </div>
+
           <div className="form-actions">
             <button className="btn secondary" onClick={() => setModalMvtOuvert(false)}>Annuler</button>
             <button className="btn" onClick={enregistrerMouvement}>Enregistrer</button>

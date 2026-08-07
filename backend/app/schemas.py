@@ -151,7 +151,7 @@ class MouvementBase(BaseModel):
     vehicule_id: int | None = None
     transporteur_id: int | None = None
     nb_personnes: int | None = None
-
+    
 
 class MouvementCreate(MouvementBase):
     """prix_applique est calculé côté serveur si non fourni."""

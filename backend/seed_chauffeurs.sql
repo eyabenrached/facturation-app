@@ -89,4 +89,6 @@ INSERT INTO chauffeurs (nom, prenom, cin, telephone, date_embauche, date_fin_con
 ('Wessim', 'Hamdi', '0000', '0', '2024-07-22', '2026-11-16'),
 ('YOUSSEF', 'HMAIDI', '14359090', '0', '2026-05-18', '2028-05-19'),
 ('Zitouni', 'Makram', '07076435', '99166044', '2022-12-28', '2027-01-31')
+
+
 ON CONFLICT (cin) DO NOTHING;
