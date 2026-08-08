@@ -36,6 +36,8 @@ export default function MouvementsFacturation() {
   const [dateAu, setDateAu] = useState("");
   const [filtreClient, setFiltreClient] = useState("");
   const [filtreStatutMvt, setFiltreStatutMvt] = useState("");
+  const [filtreHeure, setFiltreHeure] = useState("");
+  const [filtreTransporteur, setFiltreTransporteur] = useState("");
 
   const [mouvements, setMouvements] = useState<Mouvement[]>([]);
   const [factures, setFactures] = useState<Facture[]>([]);
@@ -66,6 +68,8 @@ export default function MouvementsFacturation() {
     if (dateAu) params.set("date_au", dateAu);
     if (filtreClient) params.set("client_id", filtreClient);
     if (filtreStatutMvt) params.set("statut", filtreStatutMvt);
+    if (filtreHeure) params.set("heure", filtreHeure);
+    if (filtreTransporteur) params.set("transporteur_id", filtreTransporteur);
     setMouvements(await api.get<Mouvement[]>(`/mouvements/?${params.toString()}`));
   }
 
@@ -79,7 +83,7 @@ export default function MouvementsFacturation() {
     chargerMouvements();
     chargerFactures();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dateDu, dateAu, filtreClient, filtreStatutMvt]);
+  }, [dateDu, dateAu, filtreClient, filtreStatutMvt, filtreHeure, filtreTransporteur]);
 
   // ---------- Ajout / édition / duplication d'un mouvement ----------
   function ouvrirAjoutMouvement() {
@@ -245,11 +249,24 @@ export default function MouvementsFacturation() {
           <input type="date" value={dateAu} onChange={(e) => setDateAu(e.target.value)} />
         </div>
         <div className="form-field">
+          <label>Heure</label>
+          <input type="time" value={filtreHeure} onChange={(e) => setFiltreHeure(e.target.value)} />
+        </div>
+        <div className="form-field">
           <label>Client</label>
           <select value={filtreClient} onChange={(e) => setFiltreClient(e.target.value)}>
             <option value="">Tous les clients</option>
             {clients.map((c) => (
               <option key={c.id} value={c.id}>{c.nom_societe}</option>
+            ))}
+          </select>
+        </div>
+        <div className="form-field">
+          <label>Transporteur</label>
+          <select value={filtreTransporteur} onChange={(e) => setFiltreTransporteur(e.target.value)}>
+            <option value="">Tous les transporteurs</option>
+            {agences.map((a) => (
+              <option key={a.id} value={a.id}>{a.nom_agence}</option>
             ))}
           </select>
         </div>

@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from .. import models, schemas
@@ -18,7 +19,9 @@ def liste_chauffeurs(recherche: str | None = None, db: Session = Depends(get_db)
             | (models.Chauffeur.prenom.ilike(like))
             | (models.Chauffeur.cin.ilike(like))
         )
-    return q.order_by(models.Chauffeur.nom).all()
+    # Tri alphabétique insensible à la casse (sinon les majuscules
+    # passent avant les minuscules et l'ordre paraît incohérent).
+    return q.order_by(func.lower(models.Chauffeur.nom), func.lower(models.Chauffeur.prenom)).all()
 
 
 @router.post("/", response_model=schemas.ChauffeurOut, status_code=201, dependencies=[Depends(exiger_admin)])
