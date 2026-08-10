@@ -1,9 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, pdfUrl } from "../api";
-import {
-  Mouvement, Client, Circuit, Chauffeur, Vehicule, Agence, Facture, StatutFacture,
-  LABELS_TYPE_VEHICULE,
-} from "../types";
+import { Mouvement, Client, Circuit, Chauffeur, Vehicule, Agence, Facture, StatutFacture, LABELS_TYPE_VEHICULE } from "../types";
 import { DataTable } from "../components/DataTable";
 import { Modal } from "../components/Modal";
 
@@ -17,6 +14,8 @@ const VIDE_MOUVEMENT = {
   transporteur_id: null as number | null,
   nb_personnes: null as number | null,
 };
+
+const LISTE_PRIX = [70, 80, 90, 100, 110, 120, 125, 130, 135, 150, 160, 180];
 
 function badgeStatut(s: StatutFacture) {
   const label = s === "payee" ? "Payée" : s === "impayee" ? "Impayée" : "Partielle";
@@ -38,11 +37,12 @@ export default function MouvementsFacturation() {
   const [filtreStatutMvt, setFiltreStatutMvt] = useState("");
   const [filtreHeure, setFiltreHeure] = useState("");
   const [filtreTransporteur, setFiltreTransporteur] = useState("");
+  const [filtreChauffeur, setFiltreChauffeur] = useState("");
 
   const [mouvements, setMouvements] = useState<Mouvement[]>([]);
   const [factures, setFactures] = useState<Facture[]>([]);
 
-  // Modal ajout/édition mouvement
+  // Modal ajout mouvement
   const [modalMvtOuvert, setModalMvtOuvert] = useState(false);
   const [mouvementEnEdition, setMouvementEnEdition] = useState<Mouvement | null>(null);
   const [formMvt, setFormMvt] = useState(VIDE_MOUVEMENT);
@@ -57,7 +57,13 @@ export default function MouvementsFacturation() {
   useEffect(() => {
     api.get<Client[]>("/clients/").then(setClients);
     api.get<Circuit[]>("/circuits/").then(setCircuits);
-    api.get<Chauffeur[]>("/chauffeurs/").then(setChauffeurs);
+    api.get<Chauffeur[]>("/chauffeurs/").then((data) =>
+      setChauffeurs(
+        [...data].sort((a, b) =>
+          a.prenom.localeCompare(b.prenom, "fr", { sensitivity: "base" })
+        )
+      )
+    );
     api.get<Vehicule[]>("/vehicules/").then(setVehicules);
     api.get<Agence[]>("/agences/").then(setAgences);
   }, []);
@@ -70,6 +76,7 @@ export default function MouvementsFacturation() {
     if (filtreStatutMvt) params.set("statut", filtreStatutMvt);
     if (filtreHeure) params.set("heure", filtreHeure);
     if (filtreTransporteur) params.set("transporteur_id", filtreTransporteur);
+    if (filtreChauffeur) params.set("chauffeur_id", filtreChauffeur);
     setMouvements(await api.get<Mouvement[]>(`/mouvements/?${params.toString()}`));
   }
 
@@ -82,10 +89,9 @@ export default function MouvementsFacturation() {
   useEffect(() => {
     chargerMouvements();
     chargerFactures();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dateDu, dateAu, filtreClient, filtreStatutMvt, filtreHeure, filtreTransporteur]);
+  }, [dateDu, dateAu, filtreClient, filtreStatutMvt, filtreHeure, filtreTransporteur, filtreChauffeur]);
 
-  // ---------- Ajout / édition / duplication d'un mouvement ----------
+  // ---------- Ajout d'un mouvement ----------
   function ouvrirAjoutMouvement() {
     setMouvementEnEdition(null);
     setFormMvt(VIDE_MOUVEMENT);
@@ -147,8 +153,6 @@ export default function MouvementsFacturation() {
   function majFormMvt(champs: Partial<typeof formMvt>) {
     const next = { ...formMvt, ...champs };
     setFormMvt(next);
-    // Recalcule une suggestion de prix quand un critère de tarification change.
-    // Le prix reste ensuite modifiable à la main juste en dessous avant validation.
     rafraichirPrixSuggere(next);
   }
 
@@ -249,10 +253,6 @@ export default function MouvementsFacturation() {
           <input type="date" value={dateAu} onChange={(e) => setDateAu(e.target.value)} />
         </div>
         <div className="form-field">
-          <label>Heure</label>
-          <input type="time" value={filtreHeure} onChange={(e) => setFiltreHeure(e.target.value)} />
-        </div>
-        <div className="form-field">
           <label>Client</label>
           <select value={filtreClient} onChange={(e) => setFiltreClient(e.target.value)}>
             <option value="">Tous les clients</option>
@@ -260,6 +260,18 @@ export default function MouvementsFacturation() {
               <option key={c.id} value={c.id}>{c.nom_societe}</option>
             ))}
           </select>
+        </div>
+        <div className="form-field">
+          <label>Statut</label>
+          <select value={filtreStatutMvt} onChange={(e) => setFiltreStatutMvt(e.target.value)}>
+            <option value="">Tous</option>
+            <option value="non_facture">Non facturés</option>
+            <option value="facture">Déjà facturés</option>
+          </select>
+        </div>
+        <div className="form-field">
+          <label>Heure</label>
+          <input type="time" value={filtreHeure} onChange={(e) => setFiltreHeure(e.target.value)} />
         </div>
         <div className="form-field">
           <label>Transporteur</label>
@@ -271,11 +283,12 @@ export default function MouvementsFacturation() {
           </select>
         </div>
         <div className="form-field">
-          <label>Statut</label>
-          <select value={filtreStatutMvt} onChange={(e) => setFiltreStatutMvt(e.target.value)}>
-            <option value="">Tous</option>
-            <option value="non_facture">Non facturés</option>
-            <option value="facture">Déjà facturés</option>
+          <label>Chauffeur</label>
+          <select value={filtreChauffeur} onChange={(e) => setFiltreChauffeur(e.target.value)}>
+            <option value="">Tous les chauffeurs</option>
+            {chauffeurs.map((c) => (
+              <option key={c.id} value={c.id}>{c.prenom} {c.nom}</option>
+            ))}
           </select>
         </div>
       </div>
@@ -312,7 +325,7 @@ export default function MouvementsFacturation() {
 
       {filtreClient && dateDu && dateAu && (
         <div className="card" style={{ marginTop: "1.25rem" }}>
-          <h3 style={{ marginTop: 0 }}>
+          <h3 style={{ marginTop: 0, color: "#1f3864" }}>
             Récapitulatif — {client?.nom_societe} ({dateDu} → {dateAu})
           </h3>
           <div className="recap-grid">
@@ -328,7 +341,7 @@ export default function MouvementsFacturation() {
         </div>
       )}
 
-      <h3 style={{ marginTop: "2rem" }}>Factures</h3>
+      <h3 style={{ marginTop: "2rem", color: "#1f3864" }}>Factures</h3>
       <DataTable<Facture>
         rows={factures}
         columns={[
@@ -355,7 +368,7 @@ export default function MouvementsFacturation() {
         ]}
       />
 
-      {/* Modal : ajout / édition / duplication d'un mouvement */}
+      {/* Modal : ajout d'un mouvement */}
       {modalMvtOuvert && (
         <Modal title={mouvementEnEdition ? "Modifier le mouvement" : "Nouveau mouvement"} onClose={() => setModalMvtOuvert(false)}>
           {erreurMvt && <p className="error-msg">{erreurMvt}</p>}
@@ -391,7 +404,7 @@ export default function MouvementsFacturation() {
             </div>
             <div className="form-field">
               <label>Chauffeur (optionnel)</label>
-              <select value={formMvt.chauffeur_id || ""} onChange={(e) => setFormMvt({ ...formMvt, chauffeur_id: e.target.value ? Number(e.target.value) : null })}>
+              <select value={formMvt.chauffeur_id || ""} onChange={(e) => majFormMvt({ chauffeur_id: e.target.value ? Number(e.target.value) : null })}>
                 <option value="">—</option>
                 {chauffeurs.map((c) => <option key={c.id} value={c.id}>{c.prenom} {c.nom}</option>)}
               </select>
@@ -417,17 +430,21 @@ export default function MouvementsFacturation() {
               />
             </div>
           </div>
-
           <div className="form-field" style={{ marginBottom: "1rem" }}>
-            <label>Prix (TND) — calculé automatiquement, modifiable avant validation</label>
-            <input
-              type="number"
-              step="0.001"
-              value={prixSuggere ?? ""}
+            <label>Prix (suggéré automatiquement, modifiable)</label>
+            <select
+              value={prixSuggere !== null ? prixSuggere : ""}
               onChange={(e) => setPrixSuggere(e.target.value ? Number(e.target.value) : null)}
-            />
+            >
+              <option value="">— Sélectionner —</option>
+              {LISTE_PRIX.map((p) => (
+                <option key={p} value={p}>{p} TND</option>
+              ))}
+              {prixSuggere !== null && !LISTE_PRIX.includes(prixSuggere) && (
+                <option value={prixSuggere}>{prixSuggere} TND (suggéré)</option>
+              )}
+            </select>
           </div>
-
           <div className="form-actions">
             <button className="btn secondary" onClick={() => setModalMvtOuvert(false)}>Annuler</button>
             <button className="btn" onClick={enregistrerMouvement}>Enregistrer</button>

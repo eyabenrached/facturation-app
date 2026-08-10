@@ -16,6 +16,9 @@ def liste_mouvements(
     date_au: date | None = None,
     client_id: int | None = None,
     circuit_id: int | None = None,
+    heure: str | None = None,
+    transporteur_id: int | None = None,
+    chauffeur_id: int | None = None,
     statut: str | None = None,  # "facture" | "non_facture"
     db: Session = Depends(get_db),
 ):
@@ -34,6 +37,12 @@ def liste_mouvements(
         q = q.filter(models.Mouvement.client_id == client_id)
     if circuit_id:
         q = q.filter(models.Mouvement.circuit_id == circuit_id)
+    if heure:
+        q = q.filter(models.Mouvement.heure == heure)
+    if transporteur_id:
+        q = q.filter(models.Mouvement.transporteur_id == transporteur_id)
+    if chauffeur_id:
+        q = q.filter(models.Mouvement.chauffeur_id == chauffeur_id)
     if statut == "facture":
         q = q.filter(models.Mouvement.facture_id.isnot(None))
     elif statut == "non_facture":
