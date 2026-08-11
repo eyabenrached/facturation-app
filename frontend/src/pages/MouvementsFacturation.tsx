@@ -3,6 +3,9 @@ import { api, pdfUrl } from "../api";
 import { Mouvement, Client, Circuit, Chauffeur, Vehicule, Agence, Facture, StatutFacture, LABELS_TYPE_VEHICULE } from "../types";
 import { DataTable } from "../components/DataTable";
 import { Modal } from "../components/Modal";
+import { useAuth } from "../auth/AuthContext";
+
+const LISTE_PRIX = [70, 80, 90, 100, 110, 120, 125, 130, 135, 150, 160, 180];
 
 const VIDE_MOUVEMENT = {
   date: "",
@@ -15,14 +18,15 @@ const VIDE_MOUVEMENT = {
   nb_personnes: null as number | null,
 };
 
-const LISTE_PRIX = [70, 80, 90, 100, 110, 120, 125, 130, 135, 150, 160, 180];
-
 function badgeStatut(s: StatutFacture) {
   const label = s === "payee" ? "Payée" : s === "impayee" ? "Impayée" : "Partielle";
   return <span className={`badge ${s}`}>{label}</span>;
 }
 
 export default function MouvementsFacturation() {
+  const { utilisateur } = useAuth();
+  const estAdmin = utilisateur?.role === "administrateur";
+
   // Référentiels
   const [clients, setClients] = useState<Client[]>([]);
   const [circuits, setCircuits] = useState<Circuit[]>([]);
@@ -81,6 +85,7 @@ export default function MouvementsFacturation() {
   }
 
   async function chargerFactures() {
+    if (!estAdmin) return; // Les gestionnaires n'ont pas accès aux factures.
     const params = new URLSearchParams();
     if (filtreClient) params.set("client_id", filtreClient);
     setFactures(await api.get<Facture[]>(`/factures/?${params.toString()}`));
@@ -304,7 +309,7 @@ export default function MouvementsFacturation() {
           { header: "Chauffeur", render: (m) => (m.chauffeur ? `${m.chauffeur.prenom} ${m.chauffeur.nom}` : "—") },
           { header: "Véhicule", render: (m) => m.vehicule?.matricule || "—" },
           { header: "Nb pers.", render: (m) => m.nb_personnes ?? "—" },
-          { header: "Prix", render: (m) => `${m.prix_applique} TND` },
+          ...(estAdmin ? [{ header: "Prix", render: (m: Mouvement) => `${m.prix_applique} TND` }] : []),
           { header: "Statut", render: (m) => (m.facture_id ? "Facturé" : "Non facturé") },
           {
             header: "Actions",
@@ -323,7 +328,7 @@ export default function MouvementsFacturation() {
         ]}
       />
 
-      {filtreClient && dateDu && dateAu && (
+      {estAdmin && filtreClient && dateDu && dateAu && (
         <div className="card" style={{ marginTop: "1.25rem" }}>
           <h3 style={{ marginTop: 0, color: "#1f3864" }}>
             Récapitulatif — {client?.nom_societe} ({dateDu} → {dateAu})
@@ -341,32 +346,36 @@ export default function MouvementsFacturation() {
         </div>
       )}
 
-      <h3 style={{ marginTop: "2rem", color: "#1f3864" }}>Factures</h3>
-      <DataTable<Facture>
-        rows={factures}
-        columns={[
-          { header: "N° facture", render: (f) => f.numero_facture },
-          { header: "Client", render: (f) => f.client?.nom_societe || "—" },
-          { header: "Période", render: (f) => `${f.date_debut} → ${f.date_fin}` },
-          { header: "TTC", render: (f) => `${f.montant_ttc} TND` },
-          { header: "Statut", render: (f) => badgeStatut(f.statut) },
-          {
-            header: "Actions",
-            render: (f) => (
-              <>
-                <a className="btn-link" href={pdfUrl(f.id)} target="_blank" rel="noreferrer">Export PDF</a>
-                {f.statut !== "payee" && (
-                  <button className="btn-link" onClick={() => changerStatutFacture(f, "payee")}>Marquer payée</button>
-                )}
-                {f.statut !== "impayee" && (
-                  <button className="btn-link" onClick={() => changerStatutFacture(f, "impayee")}>Marquer impayée</button>
-                )}
-                <button className="btn-link" onClick={() => supprimerFacture(f)}>Supprimer</button>
-              </>
-            ),
-          },
-        ]}
-      />
+      {estAdmin && (
+        <>
+          <h3 style={{ marginTop: "2rem", color: "#1f3864" }}>Factures</h3>
+          <DataTable<Facture>
+            rows={factures}
+            columns={[
+              { header: "N° facture", render: (f) => f.numero_facture },
+              { header: "Client", render: (f) => f.client?.nom_societe || "—" },
+              { header: "Période", render: (f) => `${f.date_debut} → ${f.date_fin}` },
+              { header: "TTC", render: (f) => `${f.montant_ttc} TND` },
+              { header: "Statut", render: (f) => badgeStatut(f.statut) },
+              {
+                header: "Actions",
+                render: (f) => (
+                  <>
+                    <a className="btn-link" href={pdfUrl(f.id)} target="_blank" rel="noreferrer">Export PDF</a>
+                    {f.statut !== "payee" && (
+                      <button className="btn-link" onClick={() => changerStatutFacture(f, "payee")}>Marquer payée</button>
+                    )}
+                    {f.statut !== "impayee" && (
+                      <button className="btn-link" onClick={() => changerStatutFacture(f, "impayee")}>Marquer impayée</button>
+                    )}
+                    <button className="btn-link" onClick={() => supprimerFacture(f)}>Supprimer</button>
+                  </>
+                ),
+              },
+            ]}
+          />
+        </>
+      )}
 
       {/* Modal : ajout d'un mouvement */}
       {modalMvtOuvert && (

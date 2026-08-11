@@ -13,7 +13,7 @@ def liste_circuits(db: Session = Depends(get_db)):
     return db.query(models.Circuit).order_by(models.Circuit.point_depart).all()
 
 
-@router.post("/", response_model=schemas.CircuitOut, status_code=201, dependencies=[Depends(exiger_admin)])
+@router.post("/", response_model=schemas.CircuitOut, status_code=201, dependencies=[Depends(exiger_utilisateur_connecte)])
 def creer_circuit(payload: schemas.CircuitCreate, db: Session = Depends(get_db)):
     obj = models.Circuit(**payload.model_dump())
     db.add(obj)
@@ -46,7 +46,7 @@ def supprimer_circuit(circuit_id: int, db: Session = Depends(get_db)):
 
 
 # ---------- Tarifs spécifiques client+circuit (surcharge de prix) ----------
-@router.get("/tarifs/", response_model=list[schemas.TarifClientOut], dependencies=[Depends(exiger_utilisateur_connecte)])
+@router.get("/tarifs/", response_model=list[schemas.TarifClientOut], dependencies=[Depends(exiger_admin)])
 def liste_tarifs(client_id: int | None = None, circuit_id: int | None = None, db: Session = Depends(get_db)):
     q = db.query(models.TarifClient)
     if client_id:

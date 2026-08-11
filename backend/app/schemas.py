@@ -16,6 +16,13 @@ class UtilisateurCreate(BaseModel):
     role: RoleUtilisateur = RoleUtilisateur.gestionnaire
 
 
+class UtilisateurUpdate(BaseModel):
+    nom: str
+    email: EmailStr
+    role: RoleUtilisateur
+    password: str | None = None  # si fourni, réinitialise le mot de passe
+
+
 class UtilisateurOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
@@ -151,7 +158,7 @@ class MouvementBase(BaseModel):
     vehicule_id: int | None = None
     transporteur_id: int | None = None
     nb_personnes: int | None = None
-    
+
 
 class MouvementCreate(MouvementBase):
     """prix_applique est calculé côté serveur si non fourni."""

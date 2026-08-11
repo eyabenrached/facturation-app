@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from .. import models, schemas
 from ..database import get_db
-from ..deps import exiger_utilisateur_connecte
+from ..deps import exiger_admin, exiger_utilisateur_connecte
 from ..pdf import generer_facture_pdf
 
 router = APIRouter(prefix="/factures", tags=["Factures"])
@@ -26,13 +26,13 @@ def _suggerer_numero(db: Session) -> str:
     return f"{prefixe}{nb + 1:04d}"
 
 
-@router.get("/next-numero", response_model=schemas.NextNumeroOut, dependencies=[Depends(exiger_utilisateur_connecte)])
+@router.get("/next-numero", response_model=schemas.NextNumeroOut, dependencies=[Depends(exiger_admin)])
 def next_numero(db: Session = Depends(get_db)):
     """Numéro suggéré automatiquement, à afficher pré-rempli (et modifiable) dans le formulaire."""
     return {"numero_suggere": _suggerer_numero(db)}
 
 
-@router.get("/", response_model=list[schemas.FactureOut], dependencies=[Depends(exiger_utilisateur_connecte)])
+@router.get("/", response_model=list[schemas.FactureOut], dependencies=[Depends(exiger_admin)])
 def liste_factures(
     client_id: int | None = None,
     statut: str | None = None,
@@ -54,7 +54,7 @@ def liste_factures(
     return q.order_by(models.Facture.date_creation.desc()).all()
 
 
-@router.post("/", response_model=schemas.FactureOut, status_code=201, dependencies=[Depends(exiger_utilisateur_connecte)])
+@router.post("/", response_model=schemas.FactureOut, status_code=201, dependencies=[Depends(exiger_admin)])
 def generer_facture(payload: schemas.FactureGenerateRequest, db: Session = Depends(get_db)):
     client = db.query(models.Client).get(payload.client_id)
     if not client:
@@ -103,7 +103,7 @@ def generer_facture(payload: schemas.FactureGenerateRequest, db: Session = Depen
     return facture
 
 
-@router.delete("/{facture_id}", status_code=204, dependencies=[Depends(exiger_utilisateur_connecte)])
+@router.delete("/{facture_id}", status_code=204, dependencies=[Depends(exiger_admin)])
 def supprimer_facture(facture_id: int, db: Session = Depends(get_db)):
     facture = db.query(models.Facture).get(facture_id)
     if not facture:
@@ -118,7 +118,7 @@ def supprimer_facture(facture_id: int, db: Session = Depends(get_db)):
     db.commit()
 
 
-@router.patch("/{facture_id}/statut", response_model=schemas.FactureOut, dependencies=[Depends(exiger_utilisateur_connecte)])
+@router.patch("/{facture_id}/statut", response_model=schemas.FactureOut, dependencies=[Depends(exiger_admin)])
 def changer_statut(facture_id: int, payload: schemas.FactureStatutUpdate, db: Session = Depends(get_db)):
     facture = db.query(models.Facture).get(facture_id)
     if not facture:
@@ -130,7 +130,7 @@ def changer_statut(facture_id: int, payload: schemas.FactureStatutUpdate, db: Se
     return facture
 
 
-@router.get("/{facture_id}/pdf", dependencies=[Depends(exiger_utilisateur_connecte)])
+@router.get("/{facture_id}/pdf", dependencies=[Depends(exiger_admin)])
 def export_pdf(facture_id: int, db: Session = Depends(get_db)):
     facture = (
         db.query(models.Facture)

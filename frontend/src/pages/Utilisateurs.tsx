@@ -11,6 +11,7 @@ export default function Utilisateurs() {
   const { utilisateur: moi } = useAuth();
   const [liste, setListe] = useState<Utilisateur[]>([]);
   const [modalOuvert, setModalOuvert] = useState(false);
+  const [enEdition, setEnEdition] = useState<Utilisateur | null>(null);
   const [form, setForm] = useState(VIDE);
   const [erreur, setErreur] = useState("");
 
@@ -23,7 +24,15 @@ export default function Utilisateurs() {
   }, []);
 
   function ouvrirAjout() {
+    setEnEdition(null);
     setForm(VIDE);
+    setErreur("");
+    setModalOuvert(true);
+  }
+
+  function ouvrirEdition(u: Utilisateur) {
+    setEnEdition(u);
+    setForm({ nom: u.nom, email: u.email, password: "", role: u.role });
     setErreur("");
     setModalOuvert(true);
   }
@@ -31,7 +40,13 @@ export default function Utilisateurs() {
   async function enregistrer() {
     setErreur("");
     try {
-      await api.post("/utilisateurs/", form);
+      if (enEdition) {
+        const payload: any = { nom: form.nom, email: form.email, role: form.role };
+        if (form.password) payload.password = form.password;
+        await api.put(`/utilisateurs/${enEdition.id}`, payload);
+      } else {
+        await api.post("/utilisateurs/", form);
+      }
       setModalOuvert(false);
       charger();
     } catch (e) {
@@ -48,6 +63,16 @@ export default function Utilisateurs() {
   async function reactiver(u: Utilisateur) {
     await api.patch(`/utilisateurs/${u.id}/reactiver`, {});
     charger();
+  }
+
+  async function supprimer(u: Utilisateur) {
+    if (!confirm(`Supprimer définitivement le compte de ${u.nom} ? Cette action est irréversible.`)) return;
+    try {
+      await api.delete(`/utilisateurs/${u.id}`);
+      charger();
+    } catch (e) {
+      alert((e as Error).message);
+    }
   }
 
   return (
@@ -68,18 +93,22 @@ export default function Utilisateurs() {
             header: "Actions",
             render: (u) =>
               u.id !== moi?.id && (
-                u.actif ? (
-                  <button className="btn-link" onClick={() => desactiver(u)}>Désactiver</button>
-                ) : (
-                  <button className="btn-link" onClick={() => reactiver(u)}>Réactiver</button>
-                )
+                <>
+                  <button className="btn-link" onClick={() => ouvrirEdition(u)}>Modifier</button>
+                  {u.actif ? (
+                    <button className="btn-link" onClick={() => desactiver(u)}>Désactiver</button>
+                  ) : (
+                    <button className="btn-link" onClick={() => reactiver(u)}>Réactiver</button>
+                  )}
+                  <button className="btn-link" onClick={() => supprimer(u)}>Supprimer</button>
+                </>
               ),
           },
         ]}
       />
 
       {modalOuvert && (
-        <Modal title="Ajouter un utilisateur" onClose={() => setModalOuvert(false)}>
+        <Modal title={enEdition ? "Modifier l'utilisateur" : "Ajouter un utilisateur"} onClose={() => setModalOuvert(false)}>
           {erreur && <p className="error-msg">{erreur}</p>}
           <div className="form-field" style={{ marginBottom: "0.9rem" }}>
             <label>Nom</label>
@@ -90,7 +119,7 @@ export default function Utilisateurs() {
             <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
           </div>
           <div className="form-field" style={{ marginBottom: "0.9rem" }}>
-            <label>Mot de passe</label>
+            <label>{enEdition ? "Nouveau mot de passe (laisser vide pour ne pas changer)" : "Mot de passe"}</label>
             <input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
           </div>
           <div className="form-field" style={{ marginBottom: "0.9rem" }}>

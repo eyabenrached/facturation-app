@@ -76,7 +76,7 @@ export default function Chauffeurs() {
     <div>
       <div className="page-header">
         <h2>Chauffeurs</h2>
-        {estAdmin && <button className="btn" onClick={ouvrirAjout}>+ Ajouter un chauffeur</button>}
+        <button className="btn" onClick={ouvrirAjout}>+ Ajouter un chauffeur</button>
       </div>
 
       <div className="toolbar">
@@ -108,7 +108,7 @@ export default function Chauffeurs() {
         ]}
       />
 
-      {modalOuvert && estAdmin && (
+      {modalOuvert && (
         <Modal title={enEdition ? "Modifier le chauffeur" : "Ajouter un chauffeur"} onClose={() => setModalOuvert(false)}>
           {erreur && <p className="error-msg">{erreur}</p>}
           <div className="form-grid">

@@ -30,6 +30,28 @@ def creer_utilisateur(payload: schemas.UtilisateurCreate, db: Session = Depends(
     return obj
 
 
+@router.put("/{user_id}", response_model=schemas.UtilisateurOut, dependencies=[Depends(exiger_admin)])
+def modifier_utilisateur(user_id: int, payload: schemas.UtilisateurUpdate, db: Session = Depends(get_db)):
+    obj = db.query(models.Utilisateur).get(user_id)
+    if not obj:
+        raise HTTPException(404, "Utilisateur introuvable.")
+    doublon = (
+        db.query(models.Utilisateur)
+        .filter(models.Utilisateur.email == payload.email, models.Utilisateur.id != user_id)
+        .first()
+    )
+    if doublon:
+        raise HTTPException(400, "Un utilisateur avec cet e-mail existe déjà.")
+    obj.nom = payload.nom
+    obj.email = payload.email
+    obj.role = payload.role
+    if payload.password:
+        obj.mot_de_passe_hash = hash_password(payload.password)
+    db.commit()
+    db.refresh(obj)
+    return obj
+
+
 @router.patch("/{user_id}/desactiver", response_model=schemas.UtilisateurOut, dependencies=[Depends(exiger_admin)])
 def desactiver_utilisateur(
     user_id: int, db: Session = Depends(get_db), admin: models.Utilisateur = Depends(get_current_user)
@@ -54,3 +76,16 @@ def reactiver_utilisateur(user_id: int, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(obj)
     return obj
+
+
+@router.delete("/{user_id}", status_code=204, dependencies=[Depends(exiger_admin)])
+def supprimer_utilisateur(
+    user_id: int, db: Session = Depends(get_db), admin: models.Utilisateur = Depends(get_current_user)
+):
+    obj = db.query(models.Utilisateur).get(user_id)
+    if not obj:
+        raise HTTPException(404, "Utilisateur introuvable.")
+    if obj.id == admin.id:
+        raise HTTPException(400, "Vous ne pouvez pas supprimer votre propre compte.")
+    db.delete(obj)
+    db.commit()

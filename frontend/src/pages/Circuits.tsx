@@ -118,6 +118,7 @@ export default function Circuits() {
   }
 
   async function ouvrirTarifs(c: Circuit) {
+    if (!estAdmin) return;
     setCircuitTarifs(c);
     setFormTarif(VIDE_TARIF);
     setErreurTarif("");
@@ -210,6 +211,7 @@ export default function Circuits() {
   }
 
   async function ouvrirListeTarifs() {
+    if (!estAdmin) return;
     setModalTousOuvert(true);
     await chargerTousTarifs();
   }
@@ -226,8 +228,8 @@ export default function Circuits() {
       <div className="page-header">
         <h2>Circuits</h2>
         <div style={{ display: "flex", gap: "0.6rem" }}>
-          <button className="btn secondary" onClick={ouvrirListeTarifs}>Liste des tarifs</button>
-          {estAdmin && <button className="btn" onClick={ouvrirAjout}>+ Ajouter un circuit</button>}
+          {estAdmin && <button className="btn secondary" onClick={ouvrirListeTarifs}>Liste des tarifs</button>}
+          <button className="btn" onClick={ouvrirAjout}>+ Ajouter un circuit</button>
         </div>
       </div>
 
@@ -254,7 +256,7 @@ export default function Circuits() {
             render: (c) => (
               <>
                 {estAdmin && <button className="btn-link" onClick={() => ouvrirEdition(c)}>Modifier</button>}
-                <button className="btn-link" onClick={() => ouvrirTarifs(c)}>Tarifs clients</button>
+                {estAdmin && <button className="btn-link" onClick={() => ouvrirTarifs(c)}>Tarifs clients</button>}
                 {estAdmin && <button className="btn-link" onClick={() => supprimer(c)}>Supprimer</button>}
               </>
             ),
@@ -262,7 +264,7 @@ export default function Circuits() {
         ]}
       />
 
-      {modalOuvert && estAdmin && (
+      {modalOuvert && (
         <Modal title={enEdition ? "Modifier le circuit" : "Nouveau circuit"} onClose={() => setModalOuvert(false)}>
           {erreur && <p className="error-msg">{erreur}</p>}
           <div className="form-field" style={{ marginBottom: "0.9rem" }}>
