@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, NavLink, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./auth/AuthContext";
 import Login from "./pages/Login";
+import Dashboard from "./pages/Dashboard";
 import Chauffeurs from "./pages/Chauffeurs";
 import Clients from "./pages/Clients";
 import Agences from "./pages/Agences";
@@ -25,6 +26,11 @@ function Sidebar() {
     <aside className="sidebar">
       <h1>Facturation Transport</h1>
       <nav>
+        {estAdmin && (
+          <NavLink to="/dashboard" className={({ isActive }) => (isActive ? "active" : "")}>
+            Tableau de bord
+          </NavLink>
+        )}
         {/* Les référentiels restent visibles en lecture pour tous ;
             le backend bloque déjà la création/modification aux gestionnaires. */}
         {liensReferentiels.map((l) => (
@@ -64,7 +70,8 @@ function RoutesProtegees() {
       <Sidebar />
       <main className="content">
         <Routes>
-          <Route path="/" element={<Navigate to="/mouvements" replace />} />
+          <Route path="/" element={<Navigate to={estAdmin ? "/dashboard" : "/mouvements"} replace />} />
+          {estAdmin && <Route path="/dashboard" element={<Dashboard />} />}
           <Route path="/chauffeurs" element={<Chauffeurs />} />
           <Route path="/clients" element={<Clients />} />
           <Route path="/agences" element={<Agences />} />
