@@ -49,7 +49,12 @@ export default function Circuits() {
   const [filtreCircuitTous, setFiltreCircuitTous] = useState<string>("");
 
   async function charger() {
-    setListe(await api.get<Circuit[]>("/circuits/"));
+    const data = await api.get<Circuit[]>("/circuits/");
+    setListe(
+      [...data].sort((a, b) =>
+        `${a.point_depart} ${a.point_arrivee}`.localeCompare(`${b.point_depart} ${b.point_arrivee}`, "fr", { sensitivity: "base" })
+      )
+    );
   }
 
   useEffect(() => {

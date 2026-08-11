@@ -60,7 +60,13 @@ export default function MouvementsFacturation() {
 
   useEffect(() => {
     api.get<Client[]>("/clients/").then(setClients);
-    api.get<Circuit[]>("/circuits/").then(setCircuits);
+    api.get<Circuit[]>("/circuits/").then((data) =>
+      setCircuits(
+        [...data].sort((a, b) =>
+          `${a.point_depart} ${a.point_arrivee}`.localeCompare(`${b.point_depart} ${b.point_arrivee}`, "fr", { sensitivity: "base" })
+        )
+      )
+    );
     api.get<Chauffeur[]>("/chauffeurs/").then((data) =>
       setChauffeurs(
         [...data].sort((a, b) =>
@@ -141,28 +147,16 @@ export default function MouvementsFacturation() {
     setModalMvtOuvert(true);
   }
 
-  async function rafraichirPrixSuggere(next: typeof formMvt) {
-    if (next.client_id && next.circuit_id && next.heure) {
-      try {
-        const vehiculeParam = next.vehicule_id ? `&vehicule_id=${next.vehicule_id}` : "";
-        const res = await api.get<{ prix_suggere: number }>(
-          `/mouvements/prix-suggere?client_id=${next.client_id}&circuit_id=${next.circuit_id}&heure=${next.heure}${vehiculeParam}`
-        );
-        setPrixSuggere(res.prix_suggere);
-      } catch {
-        setPrixSuggere(null);
-      }
-    }
-  }
-
   function majFormMvt(champs: Partial<typeof formMvt>) {
-    const next = { ...formMvt, ...champs };
-    setFormMvt(next);
-    rafraichirPrixSuggere(next);
+    setFormMvt({ ...formMvt, ...champs });
   }
 
   async function enregistrerMouvement() {
     setErreurMvt("");
+    if (prixSuggere === null) {
+      setErreurMvt("Veuillez sélectionner un prix dans la liste avant d'enregistrer.");
+      return;
+    }
     try {
       if (mouvementEnEdition) {
         await api.put(`/mouvements/${mouvementEnEdition.id}`, { ...formMvt, prix_applique: prixSuggere });
@@ -440,7 +434,7 @@ export default function MouvementsFacturation() {
             </div>
           </div>
           <div className="form-field" style={{ marginBottom: "1rem" }}>
-            <label>Prix (suggéré automatiquement, modifiable)</label>
+            <label>Prix *</label>
             <select
               value={prixSuggere !== null ? prixSuggere : ""}
               onChange={(e) => setPrixSuggere(e.target.value ? Number(e.target.value) : null)}
@@ -450,7 +444,7 @@ export default function MouvementsFacturation() {
                 <option key={p} value={p}>{p} TND</option>
               ))}
               {prixSuggere !== null && !LISTE_PRIX.includes(prixSuggere) && (
-                <option value={prixSuggere}>{prixSuggere} TND (suggéré)</option>
+                <option value={prixSuggere}>{prixSuggere} TND</option>
               )}
             </select>
           </div>
