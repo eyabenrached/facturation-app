@@ -177,6 +177,46 @@ class MouvementOut(MouvementBase):
     transporteur: AgenceOut | None = None
 
 
+# ---------- Mouvements Location (indépendants de la facturation) ----------
+class MouvementLocationBase(BaseModel):
+    date: date
+    heure: time
+    client: str
+    circuit: str
+    prix: float
+    chauffeur_id: int | None = None
+    vehicule_id: int | None = None
+    transporteur_id: int | None = None
+    nb_personnes: int | None = None
+    remarque: str | None = None
+
+
+class MouvementLocationCreate(MouvementLocationBase):
+    pass
+
+
+class MouvementLocationOut(MouvementLocationBase):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    chauffeur: ChauffeurOut | None = None
+    vehicule: VehiculeOut | None = None
+    transporteur: AgenceOut | None = None
+
+
+# ---------- Récapitulatif transporteurs (chrono par heure) ----------
+class RecapLigneOut(BaseModel):
+    heure: time
+    comptes: dict[str, int]
+    total: int
+
+
+class RecapTransporteursOut(BaseModel):
+    transporteurs: list[AgenceOut]
+    lignes: list[RecapLigneOut]
+    totaux: dict[str, int]
+    total_general: int
+
+
 # ---------- Factures ----------
 class FactureGenerateRequest(BaseModel):
     client_id: int

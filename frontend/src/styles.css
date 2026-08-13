@@ -308,6 +308,20 @@ a { color: inherit; }
 
 .error-msg { color: var(--coral); font-size: 0.85rem; margin: 0.5rem 0; font-weight: 500; }
 
+/* ---------- Récapitulatif transporteurs (chrono par heure) ---------- */
+
+.recap-transporteurs-table { border-collapse: separate; border-spacing: 0; }
+.recap-transporteurs-table th { white-space: nowrap; }
+.recap-transporteurs-table .heure-cell { font-weight: 600; color: var(--ink); background: var(--paper); white-space: nowrap; }
+.recap-transporteurs-table .compte-cell { text-align: center; background: var(--teal-soft); color: var(--teal); font-weight: 600; }
+.recap-transporteurs-table tr:nth-child(even) .compte-cell { background: #ddf0e9; }
+.recap-transporteurs-table .ligne-total td {
+  font-weight: 700;
+  background: var(--navy) !important;
+  color: #fff !important;
+  border-top: 2px solid var(--navy-deep);
+}
+
 /* ---------- Page de connexion ---------- */
 
 .login-page {

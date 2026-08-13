@@ -154,6 +154,30 @@ class Mouvement(Base):
     facture: Mapped["Facture | None"] = relationship(back_populates="mouvements")
 
 
+class MouvementLocation(Base):
+    """Mouvement de location indépendant de la facturation : client, circuit et
+    prix sont saisis librement (texte/numérique), sans lien avec les tables
+    référentielles Client/Circuit ni avec une Facture."""
+
+    __tablename__ = "mouvements_location"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    date: Mapped[date] = mapped_column(Date)
+    heure: Mapped[time] = mapped_column(Time)
+    client: Mapped[str] = mapped_column(String(150))
+    circuit: Mapped[str] = mapped_column(String(200))
+    prix: Mapped[float] = mapped_column(Numeric(10, 3))
+    chauffeur_id: Mapped[int | None] = mapped_column(ForeignKey("chauffeurs.id"), nullable=True)
+    vehicule_id: Mapped[int | None] = mapped_column(ForeignKey("vehicules.id"), nullable=True)
+    transporteur_id: Mapped[int | None] = mapped_column(ForeignKey("agences.id"), nullable=True)
+    nb_personnes: Mapped[int | None] = mapped_column(nullable=True)
+    remarque: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    chauffeur: Mapped["Chauffeur | None"] = relationship(foreign_keys=[chauffeur_id])
+    vehicule: Mapped["Vehicule | None"] = relationship(foreign_keys=[vehicule_id])
+    transporteur: Mapped["Agence | None"] = relationship(foreign_keys=[transporteur_id])
+
+
 class Facture(Base):
     __tablename__ = "factures"
 

@@ -3,6 +3,7 @@ import { api, pdfUrl } from "../api";
 import { Mouvement, Client, Circuit, Chauffeur, Vehicule, Agence, Facture, StatutFacture, LABELS_TYPE_VEHICULE } from "../types";
 import { DataTable } from "../components/DataTable";
 import { Modal } from "../components/Modal";
+import { RecapTransporteurs } from "../components/RecapTransporteurs";
 import { useAuth } from "../auth/AuthContext";
 
 const LISTE_PRIX = [70, 80, 90, 100, 110, 120, 125, 130, 135, 150, 160, 180];
@@ -291,6 +292,8 @@ export default function MouvementsFacturation() {
           </select>
         </div>
       </div>
+
+      <RecapTransporteurs endpoint="/mouvements/recap-transporteurs" dateDu={dateDu} dateAu={dateAu} />
 
       <DataTable<Mouvement>
         rows={mouvements}

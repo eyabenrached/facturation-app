@@ -92,6 +92,36 @@ export interface Mouvement {
   transporteur?: Agence;
 }
 
+export interface MouvementLocation {
+  id: number;
+  date: string;
+  heure: string;
+  client: string;
+  circuit: string;
+  prix: number;
+  chauffeur_id: number | null;
+  vehicule_id: number | null;
+  transporteur_id: number | null;
+  nb_personnes: number | null;
+  remarque: string | null;
+  chauffeur?: Chauffeur;
+  vehicule?: Vehicule;
+  transporteur?: Agence;
+}
+
+export interface RecapLigne {
+  heure: string;
+  comptes: Record<string, number>;
+  total: number;
+}
+
+export interface RecapTransporteurs {
+  transporteurs: Agence[];
+  lignes: RecapLigne[];
+  totaux: Record<string, number>;
+  total_general: number;
+}
+
 export type StatutFacture = "payee" | "impayee" | "partielle";
 
 

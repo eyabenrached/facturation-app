@@ -6,7 +6,7 @@ from .database import Base, engine, SessionLocal
 from . import models  # noqa: F401 (nécessaire pour enregistrer les tables)
 from .security import hash_password
 from .routers import (
-    chauffeurs, clients, agences, vehicules, circuits, mouvements, factures,
+    chauffeurs, clients, agences, vehicules, circuits, mouvements, mouvements_location, factures,
     auth, utilisateurs, dashboard,
 )
 
@@ -59,6 +59,7 @@ app.include_router(agences.router)
 app.include_router(vehicules.router)
 app.include_router(circuits.router)
 app.include_router(mouvements.router)
+app.include_router(mouvements_location.router)
 app.include_router(factures.router)
 app.include_router(dashboard.router)
 
