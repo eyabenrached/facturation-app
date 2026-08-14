@@ -55,6 +55,28 @@ def revenu_mensuel(annee: int, mois: int, db: Session = Depends(get_db)):
 
     nb_non_factures = sum(1 for m in mouvements_du_mois if m.facture_id is None)
 
+    # Répartition par transporteur (agence), tous mouvements confondus
+    # (Mouvements & Facturation + Mouvements Location), pour les mouvements
+    # où un transporteur a été choisi.
+    par_transporteur: dict[int, dict] = {}
+
+    def _cumuler_transporteur(m, prix: float):
+        if m.transporteur_id is None:
+            return
+        tid = m.transporteur_id
+        if tid not in par_transporteur:
+            par_transporteur[tid] = {
+                "transporteur_id": tid,
+                "nom_transporteur": m.transporteur.nom_agence,
+                "total": 0.0,
+                "nb": 0,
+            }
+        par_transporteur[tid]["total"] += prix
+        par_transporteur[tid]["nb"] += 1
+
+    for m in mouvements_du_mois:
+        _cumuler_transporteur(m, float(m.prix_applique))
+
     # ---------- Mouvements Location (indépendants) ----------
     mouvements_location_du_mois = (
         db.query(models.MouvementLocation)
@@ -73,6 +95,17 @@ def revenu_mensuel(annee: int, mois: int, db: Session = Depends(get_db)):
         par_client_location[cle]["total"] += float(m.prix)
         par_client_location[cle]["nb"] += 1
     liste_par_client_location = sorted(par_client_location.values(), key=lambda x: x["total"], reverse=True)
+
+    # Répartition par jour (pour graphique), mouvements de location
+    par_jour_location: dict[int, float] = {j: 0.0 for j in range(1, monthrange(annee, mois)[1] + 1)}
+    for m in mouvements_location_du_mois:
+        par_jour_location[m.date.day] += float(m.prix)
+    liste_par_jour_location = [{"jour": j, "total": t} for j, t in sorted(par_jour_location.items())]
+
+    for m in mouvements_location_du_mois:
+        _cumuler_transporteur(m, float(m.prix))
+
+    liste_par_transporteur = sorted(par_transporteur.values(), key=lambda x: x["total"], reverse=True)
 
     factures_location_du_mois = (
         db.query(models.FactureLocation)
@@ -101,4 +134,6 @@ def revenu_mensuel(annee: int, mois: int, db: Session = Depends(get_db)):
         "total_encaisse_location": round(total_encaisse_location, 3),
         "total_impaye_location": round(total_impaye_location, 3),
         "par_client_location": liste_par_client_location,
+        "par_jour_location": liste_par_jour_location,
+        "par_transporteur": liste_par_transporteur,
     }

@@ -14,6 +14,13 @@ interface ParClientLocation {
   nb: number;
 }
 
+interface ParTransporteur {
+  transporteur_id: number;
+  nom_transporteur: string;
+  total: number;
+  nb: number;
+}
+
 interface ParJour {
   jour: number;
   total: number;
@@ -37,6 +44,8 @@ interface RevenuMensuel {
   total_encaisse_location: number;
   total_impaye_location: number;
   par_client_location: ParClientLocation[];
+  par_jour_location: ParJour[];
+  par_transporteur: ParTransporteur[];
 }
 
 const NOMS_MOIS = [
@@ -66,6 +75,7 @@ export default function Dashboard() {
   }, [annee, mois]);
 
   const maxJour = data ? Math.max(1, ...data.par_jour.map((j) => j.total)) : 1;
+  const maxJourLocation = data ? Math.max(1, ...data.par_jour_location.map((j) => j.total)) : 1;
 
   return (
     <div>
@@ -157,6 +167,20 @@ export default function Dashboard() {
             ))}
           </div>
 
+          <div className="card" style={{ marginTop: "1.5rem" }}>
+            <h3 style={{ marginTop: 0, color: "#1f3864" }}>Chiffre d'affaires par transporteur</h3>
+            <p style={{ marginTop: "-0.5rem", color: "var(--muted)", fontSize: "0.8rem" }}>
+              Mouvements &amp; Facturation + Mouvements Location cumulés.
+            </p>
+            {data.par_transporteur.length === 0 && <p>Aucun mouvement avec transporteur choisi ce mois-ci.</p>}
+            {data.par_transporteur.map((t) => (
+              <div key={t.transporteur_id} style={{ display: "flex", justifyContent: "space-between", padding: "0.5rem 0", borderBottom: "1px solid var(--line)" }}>
+                <span>{t.nom_transporteur} <span style={{ color: "var(--muted)", fontSize: "0.8rem" }}>({t.nb} mouvement{t.nb > 1 ? "s" : ""})</span></span>
+                <strong>{t.total.toFixed(3)} TND</strong>
+              </div>
+            ))}
+          </div>
+
           <h3 style={{ marginTop: "2rem", color: "#1f3864" }}>Mouvements Location</h3>
 
           <div className="recap-grid" style={{ gridTemplateColumns: "repeat(4, 1fr)" }}>
@@ -183,6 +207,32 @@ export default function Dashboard() {
               ⚠️ {data.nb_mouvements_location_non_factures} mouvement(s) de location ce mois ne sont pas encore facturés.
             </p>
           )}
+
+          <div className="card" style={{ marginTop: "1.5rem" }}>
+            <h3 style={{ marginTop: 0, color: "#1f3864" }}>Chiffre d'affaires location par jour</h3>
+            <div style={{ display: "flex", alignItems: "flex-end", gap: "3px", height: "160px", overflowX: "auto" }}>
+              {data.par_jour_location.map((j) => (
+                <div
+                  key={j.jour}
+                  title={`${j.jour} : ${j.total.toFixed(3)} TND`}
+                  style={{
+                    flex: "0 0 auto",
+                    width: "18px",
+                    height: `${Math.max(2, (j.total / maxJourLocation) * 140)}px`,
+                    background: j.total > 0 ? "#1f8a70" : "#e5e5e5",
+                    borderRadius: "3px 3px 0 0",
+                  }}
+                />
+              ))}
+            </div>
+            <div style={{ display: "flex", gap: "3px", marginTop: "4px", fontSize: "0.65rem", color: "var(--muted)" }}>
+              {data.par_jour_location.map((j) => (
+                <div key={j.jour} style={{ flex: "0 0 auto", width: "18px", textAlign: "center" }}>
+                  {j.jour}
+                </div>
+              ))}
+            </div>
+          </div>
 
           <div className="card" style={{ marginTop: "1.5rem" }}>
             <h3 style={{ marginTop: 0, color: "#1f3864" }}>Chiffre d'affaires location par client</h3>
