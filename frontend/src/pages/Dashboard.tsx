@@ -8,6 +8,12 @@ interface ParClient {
   nb: number;
 }
 
+interface ParClientLocation {
+  nom_client: string;
+  total: number;
+  nb: number;
+}
+
 interface ParJour {
   jour: number;
   total: number;
@@ -24,6 +30,13 @@ interface RevenuMensuel {
   total_impaye: number;
   par_client: ParClient[];
   par_jour: ParJour[];
+  chiffre_affaires_location: number;
+  nb_mouvements_location: number;
+  nb_mouvements_location_non_factures: number;
+  total_facture_location_ttc: number;
+  total_encaisse_location: number;
+  total_impaye_location: number;
+  par_client_location: ParClientLocation[];
 }
 
 const NOMS_MOIS = [
@@ -138,6 +151,44 @@ export default function Dashboard() {
             {data.par_client.length === 0 && <p>Aucun mouvement ce mois-ci.</p>}
             {data.par_client.map((c) => (
               <div key={c.client_id} style={{ display: "flex", justifyContent: "space-between", padding: "0.5rem 0", borderBottom: "1px solid var(--line)" }}>
+                <span>{c.nom_client} <span style={{ color: "var(--muted)", fontSize: "0.8rem" }}>({c.nb} mouvement{c.nb > 1 ? "s" : ""})</span></span>
+                <strong>{c.total.toFixed(3)} TND</strong>
+              </div>
+            ))}
+          </div>
+
+          <h3 style={{ marginTop: "2rem", color: "#1f3864" }}>Mouvements Location</h3>
+
+          <div className="recap-grid" style={{ gridTemplateColumns: "repeat(4, 1fr)" }}>
+            <div className="recap-box">
+              <div className="label">Chiffre d'affaires location ({NOMS_MOIS[data.mois - 1]})</div>
+              <div className="value">{data.chiffre_affaires_location.toFixed(3)} TND</div>
+            </div>
+            <div className="recap-box">
+              <div className="label">Mouvements location réalisés</div>
+              <div className="value">{data.nb_mouvements_location}</div>
+            </div>
+            <div className="recap-box">
+              <div className="label">Encaissé (location)</div>
+              <div className="value">{data.total_encaisse_location.toFixed(3)} TND</div>
+            </div>
+            <div className="recap-box">
+              <div className="label">Impayé (location)</div>
+              <div className="value">{data.total_impaye_location.toFixed(3)} TND</div>
+            </div>
+          </div>
+
+          {data.nb_mouvements_location_non_factures > 0 && (
+            <p style={{ color: "var(--muted)", marginTop: "0.5rem" }}>
+              ⚠️ {data.nb_mouvements_location_non_factures} mouvement(s) de location ce mois ne sont pas encore facturés.
+            </p>
+          )}
+
+          <div className="card" style={{ marginTop: "1.5rem" }}>
+            <h3 style={{ marginTop: 0, color: "#1f3864" }}>Chiffre d'affaires location par client</h3>
+            {data.par_client_location.length === 0 && <p>Aucun mouvement de location ce mois-ci.</p>}
+            {data.par_client_location.map((c) => (
+              <div key={c.nom_client} style={{ display: "flex", justifyContent: "space-between", padding: "0.5rem 0", borderBottom: "1px solid var(--line)" }}>
                 <span>{c.nom_client} <span style={{ color: "var(--muted)", fontSize: "0.8rem" }}>({c.nb} mouvement{c.nb > 1 ? "s" : ""})</span></span>
                 <strong>{c.total.toFixed(3)} TND</strong>
               </div>

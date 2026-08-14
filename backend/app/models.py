@@ -155,9 +155,9 @@ class Mouvement(Base):
 
 
 class MouvementLocation(Base):
-    """Mouvement de location indépendant de la facturation : client, circuit et
+    """Mouvement de location indépendant de la facturation classique : client, circuit et
     prix sont saisis librement (texte/numérique), sans lien avec les tables
-    référentielles Client/Circuit ni avec une Facture."""
+    référentielles Client/Circuit. Peut néanmoins être rattaché à une FactureLocation."""
 
     __tablename__ = "mouvements_location"
 
@@ -172,10 +172,37 @@ class MouvementLocation(Base):
     transporteur_id: Mapped[int | None] = mapped_column(ForeignKey("agences.id"), nullable=True)
     nb_personnes: Mapped[int | None] = mapped_column(nullable=True)
     remarque: Mapped[str | None] = mapped_column(Text, nullable=True)
+    facture_id: Mapped[int | None] = mapped_column(ForeignKey("factures_location.id"), nullable=True)
 
     chauffeur: Mapped["Chauffeur | None"] = relationship(foreign_keys=[chauffeur_id])
     vehicule: Mapped["Vehicule | None"] = relationship(foreign_keys=[vehicule_id])
     transporteur: Mapped["Agence | None"] = relationship(foreign_keys=[transporteur_id])
+    facture: Mapped["FactureLocation | None"] = relationship(back_populates="mouvements")
+
+
+class FactureLocation(Base):
+    """Facture indépendante, adossée aux MouvementLocation. Le client y est un texte
+    libre (pas de FK vers la table Client) et le taux de TVA est saisi manuellement,
+    faute de fiche client associée."""
+
+    __tablename__ = "factures_location"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    client: Mapped[str] = mapped_column(String(150))
+    numero_facture: Mapped[str] = mapped_column(String(50), unique=True, index=True)
+    date_debut: Mapped[date] = mapped_column(Date)
+    date_fin: Mapped[date] = mapped_column(Date)
+    montant_ht: Mapped[float] = mapped_column(Numeric(12, 3))
+    taux_tva: Mapped[float] = mapped_column(Numeric(5, 2))
+    montant_tva: Mapped[float] = mapped_column(Numeric(12, 3))
+    montant_ttc: Mapped[float] = mapped_column(Numeric(12, 3))
+    statut: Mapped[StatutFacture] = mapped_column(
+        Enum(StatutFacture, name="statut_facture"), default=StatutFacture.impayee
+    )
+    date_creation: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    date_paiement: Mapped[date | None] = mapped_column(Date, nullable=True)
+
+    mouvements: Mapped[list["MouvementLocation"]] = relationship(back_populates="facture")
 
 
 class Facture(Base):

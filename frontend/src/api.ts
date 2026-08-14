@@ -56,3 +56,8 @@ export function pdfUrl(factureId: number) {
   const token = getToken();
   return `${API_URL}/factures/${factureId}/pdf?access_token=${encodeURIComponent(token || "")}`;
 }
+
+export function pdfUrlLocation(factureId: number) {
+  const token = getToken();
+  return `${API_URL}/factures-location/${factureId}/pdf?access_token=${encodeURIComponent(token || "")}`;
+}

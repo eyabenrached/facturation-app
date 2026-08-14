@@ -104,9 +104,26 @@ export interface MouvementLocation {
   transporteur_id: number | null;
   nb_personnes: number | null;
   remarque: string | null;
+  facture_id: number | null;
   chauffeur?: Chauffeur;
   vehicule?: Vehicule;
   transporteur?: Agence;
+}
+
+export interface FactureLocation {
+  id: number;
+  client: string;
+  numero_facture: string;
+  date_debut: string;
+  date_fin: string;
+  montant_ht: number;
+  taux_tva: number;
+  montant_tva: number;
+  montant_ttc: number;
+  statut: StatutFacture;
+  date_creation: string;
+  date_paiement: string | null;
+  mouvements: MouvementLocation[];
 }
 
 export interface RecapLigne {

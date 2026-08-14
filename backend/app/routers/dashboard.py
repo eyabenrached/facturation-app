@@ -55,6 +55,34 @@ def revenu_mensuel(annee: int, mois: int, db: Session = Depends(get_db)):
 
     nb_non_factures = sum(1 for m in mouvements_du_mois if m.facture_id is None)
 
+    # ---------- Mouvements Location (indépendants) ----------
+    mouvements_location_du_mois = (
+        db.query(models.MouvementLocation)
+        .filter(models.MouvementLocation.date >= premier_jour, models.MouvementLocation.date <= dernier_jour)
+        .all()
+    )
+    chiffre_affaires_location = sum(float(m.prix) for m in mouvements_location_du_mois)
+    nb_mouvements_location = len(mouvements_location_du_mois)
+    nb_location_non_factures = sum(1 for m in mouvements_location_du_mois if m.facture_id is None)
+
+    par_client_location: dict[str, dict] = {}
+    for m in mouvements_location_du_mois:
+        cle = m.client.strip().lower()
+        if cle not in par_client_location:
+            par_client_location[cle] = {"nom_client": m.client.strip(), "total": 0.0, "nb": 0}
+        par_client_location[cle]["total"] += float(m.prix)
+        par_client_location[cle]["nb"] += 1
+    liste_par_client_location = sorted(par_client_location.values(), key=lambda x: x["total"], reverse=True)
+
+    factures_location_du_mois = (
+        db.query(models.FactureLocation)
+        .filter(models.FactureLocation.date_debut <= dernier_jour, models.FactureLocation.date_fin >= premier_jour)
+        .all()
+    )
+    total_facture_location_ttc = sum(float(f.montant_ttc) for f in factures_location_du_mois)
+    total_encaisse_location = sum(float(f.montant_ttc) for f in factures_location_du_mois if f.statut == models.StatutFacture.payee)
+    total_impaye_location = sum(float(f.montant_ttc) for f in factures_location_du_mois if f.statut == models.StatutFacture.impayee)
+
     return {
         "annee": annee,
         "mois": mois,
@@ -66,4 +94,11 @@ def revenu_mensuel(annee: int, mois: int, db: Session = Depends(get_db)):
         "total_impaye": round(total_impaye, 3),
         "par_client": liste_par_client,
         "par_jour": liste_par_jour,
+        "chiffre_affaires_location": round(chiffre_affaires_location, 3),
+        "nb_mouvements_location": nb_mouvements_location,
+        "nb_mouvements_location_non_factures": nb_location_non_factures,
+        "total_facture_location_ttc": round(total_facture_location_ttc, 3),
+        "total_encaisse_location": round(total_encaisse_location, 3),
+        "total_impaye_location": round(total_impaye_location, 3),
+        "par_client_location": liste_par_client_location,
     }

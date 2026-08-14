@@ -21,3 +21,25 @@ CREATE TABLE IF NOT EXISTS mouvements_location (
     nb_personnes    INTEGER NULL,
     remarque        TEXT NULL
 );
+
+-- Table des factures indépendantes adossées à mouvements_location : le client
+-- y est un texte libre (pas de FK vers "clients") et le taux de TVA est saisi
+-- manuellement lors de la génération de la facture.
+CREATE TABLE IF NOT EXISTS factures_location (
+    id              SERIAL PRIMARY KEY,
+    client          VARCHAR(150) NOT NULL,
+    numero_facture  VARCHAR(50) NOT NULL UNIQUE,
+    date_debut      DATE NOT NULL,
+    date_fin        DATE NOT NULL,
+    montant_ht      NUMERIC(12, 3) NOT NULL,
+    taux_tva        NUMERIC(5, 2) NOT NULL,
+    montant_tva     NUMERIC(12, 3) NOT NULL,
+    montant_ttc     NUMERIC(12, 3) NOT NULL,
+    statut          VARCHAR(20) NOT NULL DEFAULT 'impayee',
+    date_creation   TIMESTAMP NOT NULL DEFAULT now(),
+    date_paiement   DATE NULL
+);
+
+ALTER TABLE mouvements_location
+    ADD COLUMN IF NOT EXISTS facture_id INTEGER NULL
+    REFERENCES factures_location(id);

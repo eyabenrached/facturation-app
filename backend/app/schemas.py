@@ -198,9 +198,36 @@ class MouvementLocationCreate(MouvementLocationBase):
 class MouvementLocationOut(MouvementLocationBase):
     model_config = ConfigDict(from_attributes=True)
     id: int
+    facture_id: int | None = None
     chauffeur: ChauffeurOut | None = None
     vehicule: VehiculeOut | None = None
     transporteur: AgenceOut | None = None
+
+
+# ---------- Factures Location ----------
+class FactureLocationGenerateRequest(BaseModel):
+    client: str  # doit correspondre (insensible à la casse/espaces) au champ "client" des mouvements
+    date_debut: date
+    date_fin: date
+    numero_facture: str  # pré-rempli automatiquement côté frontend, modifiable avant validation
+    taux_tva: float = 19  # saisi manuellement : pas de fiche client associée
+
+
+class FactureLocationOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    client: str
+    numero_facture: str
+    date_debut: date
+    date_fin: date
+    montant_ht: float
+    taux_tva: float
+    montant_tva: float
+    montant_ttc: float
+    statut: StatutFacture
+    date_creation: datetime
+    date_paiement: date | None = None
+    mouvements: list[MouvementLocationOut] = []
 
 
 # ---------- Récapitulatif transporteurs (chrono par heure) ----------

@@ -40,6 +40,7 @@ def liste_mouvements_location(
     client: str | None = None,
     transporteur_id: int | None = None,
     chauffeur_id: int | None = None,
+    statut: str | None = None,  # "facture" | "non_facture"
     db: Session = Depends(get_db),
 ):
     q = _options(db.query(models.MouvementLocation))
@@ -53,6 +54,10 @@ def liste_mouvements_location(
         q = q.filter(models.MouvementLocation.transporteur_id == transporteur_id)
     if chauffeur_id:
         q = q.filter(models.MouvementLocation.chauffeur_id == chauffeur_id)
+    if statut == "facture":
+        q = q.filter(models.MouvementLocation.facture_id.isnot(None))
+    elif statut == "non_facture":
+        q = q.filter(models.MouvementLocation.facture_id.is_(None))
     return q.order_by(models.MouvementLocation.date, models.MouvementLocation.heure).all()
 
 
@@ -70,6 +75,8 @@ def modifier_mouvement_location(mouvement_id: int, payload: schemas.MouvementLoc
     obj = db.query(models.MouvementLocation).get(mouvement_id)
     if not obj:
         raise HTTPException(404, "Mouvement de location introuvable.")
+    if obj.facture_id is not None:
+        raise HTTPException(400, "Ce mouvement est déjà facturé : modification bloquée.")
     for champ, valeur in payload.model_dump().items():
         setattr(obj, champ, valeur)
     db.commit()
@@ -82,5 +89,7 @@ def supprimer_mouvement_location(mouvement_id: int, db: Session = Depends(get_db
     obj = db.query(models.MouvementLocation).get(mouvement_id)
     if not obj:
         raise HTTPException(404, "Mouvement de location introuvable.")
+    if obj.facture_id is not None:
+        raise HTTPException(400, "Ce mouvement est déjà facturé : suppression bloquée.")
     db.delete(obj)
     db.commit()

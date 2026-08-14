@@ -12,10 +12,12 @@ from . import models
 from .num2words_fr import montant_ttc_en_lettres
 
 
-def generer_facture_pdf(facture: models.Facture) -> bytes:
-    buffer = io.BytesIO()
-    # Detect logo early so we can reserve a top margin that prevents the
-    # flowables from being placed beside the image.
+def _generer_facture_pdf_generique(
+    buffer, *, numero_facture, date_debut, date_fin, client_nom, client_responsable,
+    lignes, montant_ht, taux_tva, montant_tva, montant_ttc,
+):
+    """Coeur commun aux factures classiques et aux factures location : construit le
+    PDF à partir de valeurs déjà "aplaties" (pas de dépendance à un modèle précis)."""
     page_width, page_height = A4
     logo_path = os.path.join(os.path.dirname(__file__), "static", "logo.png")
     logo_exists = os.path.exists(logo_path)
@@ -35,10 +37,14 @@ def generer_facture_pdf(facture: models.Facture) -> bytes:
 
     elements = []
 
-    # We'll build a header flowable: a two-column table with the logo at left
-    # and the title + metadata at right so the text appears next to the image.
+    meta_lines = [
+        f"N° {numero_facture}",
+        f"Période : du {date_debut.strftime('%d/%m/%Y')} au {date_fin.strftime('%d/%m/%Y')}",
+        f"Client : {client_nom}",
+    ]
+    if client_responsable:
+        meta_lines.append(f"Responsable : {client_responsable}")
 
-    # Main title and meta information
     if logo_exists:
         usable_width = page_width - doc.leftMargin - doc.rightMargin
         col1_w = logo_w + 4 * mm
@@ -46,13 +52,8 @@ def generer_facture_pdf(facture: models.Facture) -> bytes:
 
         left_img = Image(logo_path, width=logo_w, height=logo_h)
 
-        right_flow = []
-        right_flow.append(Paragraph("FACTURE", title_style))
-        right_flow.append(Spacer(1, 4 * mm))
-        right_flow.append(Paragraph(f"N° {facture.numero_facture}", normal))
-        right_flow.append(Paragraph(f"Période : du {facture.date_debut.strftime('%d/%m/%Y')} au {facture.date_fin.strftime('%d/%m/%Y')}", normal))
-        right_flow.append(Paragraph(f"Client : {facture.client.nom_societe}", normal))
-        right_flow.append(Paragraph(f"Responsable : {facture.client.responsable}", normal))
+        right_flow = [Paragraph("FACTURE", title_style), Spacer(1, 4 * mm)]
+        right_flow += [Paragraph(ligne, normal) for ligne in meta_lines]
 
         header_table = Table([[left_img, right_flow]], colWidths=[col1_w, col2_w])
         header_table.setStyle(TableStyle([
@@ -65,20 +66,17 @@ def generer_facture_pdf(facture: models.Facture) -> bytes:
     else:
         elements.append(Paragraph("FACTURE", title_style))
         elements.append(Spacer(1, 4 * mm))
-        elements.append(Paragraph(f"N° {facture.numero_facture}", normal))
-        elements.append(Paragraph(f"Période : du {facture.date_debut.strftime('%d/%m/%Y')} au {facture.date_fin.strftime('%d/%m/%Y')}", normal))
-        elements.append(Paragraph(f"Client : {facture.client.nom_societe}", normal))
-        elements.append(Paragraph(f"Responsable : {facture.client.responsable}", normal))
+        for ligne in meta_lines:
+            elements.append(Paragraph(ligne, normal))
         elements.append(Spacer(1, 8 * mm))
 
     data = [["Date", "Heure", "Circuit", "Prix (TND)"]]
-    for m in facture.mouvements:
-        circuit_txt = f"{m.circuit.point_depart} -> {m.circuit.point_arrivee}"
+    for ligne in lignes:
         data.append([
-            m.date.strftime("%d/%m/%Y"),
-            m.heure.strftime("%H:%M"),
-            circuit_txt,
-            f"{float(m.prix_applique):.3f}",
+            ligne["date"].strftime("%d/%m/%Y"),
+            ligne["heure"].strftime("%H:%M"),
+            ligne["circuit"],
+            f"{ligne['prix']:.3f}",
         ])
 
     table = Table(data, colWidths=[28 * mm, 20 * mm, 85 * mm, 30 * mm])
@@ -94,9 +92,9 @@ def generer_facture_pdf(facture: models.Facture) -> bytes:
     elements.append(Spacer(1, 8 * mm))
 
     recap_data = [
-        ["Montant HT", f"{float(facture.montant_ht):.3f} TND"],
-        [f"TVA ({float(facture.taux_tva):.1f} %)", f"{float(facture.montant_tva):.3f} TND"],
-        ["Montant TTC", f"{float(facture.montant_ttc):.3f} TND"],
+        ["Montant HT", f"{montant_ht:.3f} TND"],
+        [f"TVA ({taux_tva:.1f} %)", f"{montant_tva:.3f} TND"],
+        ["Montant TTC", f"{montant_ttc:.3f} TND"],
     ]
     recap = Table(recap_data, colWidths=[120 * mm, 43 * mm])
     recap.setStyle(TableStyle([
@@ -108,7 +106,7 @@ def generer_facture_pdf(facture: models.Facture) -> bytes:
     elements.append(recap)
     elements.append(Spacer(1, 6 * mm))
 
-    montant_lettres = montant_ttc_en_lettres(float(facture.montant_ttc))
+    montant_lettres = montant_ttc_en_lettres(montant_ttc)
     arrete_style = ParagraphStyle(
         "ArreteFacture", parent=normal, fontName="Helvetica-Oblique", fontSize=10, leading=14
     )
@@ -119,4 +117,52 @@ def generer_facture_pdf(facture: models.Facture) -> bytes:
     elements.append(Spacer(1, 6 * mm))
 
     doc.build(elements)
+
+
+def generer_facture_pdf(facture: models.Facture) -> bytes:
+    buffer = io.BytesIO()
+    lignes = [
+        {
+            "date": m.date,
+            "heure": m.heure,
+            "circuit": f"{m.circuit.point_depart} -> {m.circuit.point_arrivee}",
+            "prix": float(m.prix_applique),
+        }
+        for m in facture.mouvements
+    ]
+    _generer_facture_pdf_generique(
+        buffer,
+        numero_facture=facture.numero_facture,
+        date_debut=facture.date_debut,
+        date_fin=facture.date_fin,
+        client_nom=facture.client.nom_societe,
+        client_responsable=facture.client.responsable,
+        lignes=lignes,
+        montant_ht=float(facture.montant_ht),
+        taux_tva=float(facture.taux_tva),
+        montant_tva=float(facture.montant_tva),
+        montant_ttc=float(facture.montant_ttc),
+    )
+    return buffer.getvalue()
+
+
+def generer_facture_location_pdf(facture: "models.FactureLocation") -> bytes:
+    buffer = io.BytesIO()
+    lignes = [
+        {"date": m.date, "heure": m.heure, "circuit": m.circuit, "prix": float(m.prix)}
+        for m in facture.mouvements
+    ]
+    _generer_facture_pdf_generique(
+        buffer,
+        numero_facture=facture.numero_facture,
+        date_debut=facture.date_debut,
+        date_fin=facture.date_fin,
+        client_nom=facture.client,
+        client_responsable=None,
+        lignes=lignes,
+        montant_ht=float(facture.montant_ht),
+        taux_tva=float(facture.taux_tva),
+        montant_tva=float(facture.montant_tva),
+        montant_ttc=float(facture.montant_ttc),
+    )
     return buffer.getvalue()
