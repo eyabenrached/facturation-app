@@ -76,6 +76,14 @@ export default function Dashboard() {
 
   const maxJour = data ? Math.max(1, ...data.par_jour.map((j) => j.total)) : 1;
   const maxJourLocation = data ? Math.max(1, ...data.par_jour_location.map((j) => j.total)) : 1;
+  const joursCombines = data
+    ? data.par_jour.map((j, i) => ({
+        jour: j.jour,
+        facturation: j.total,
+        location: data.par_jour_location[i]?.total ?? 0,
+      }))
+    : [];
+  const maxJourCombine = Math.max(1, ...joursCombines.map((j) => j.facturation + j.location));
 
   return (
     <div>
@@ -105,7 +113,73 @@ export default function Dashboard() {
 
       {data && !chargement && (
         <>
-          <div className="recap-grid" style={{ gridTemplateColumns: "repeat(4, 1fr)" }}>
+          <div className="card" style={{ marginTop: "1.5rem", background: "#1f3864" }}>
+            <h3 style={{ marginTop: 0, color: "#fff" }}>
+              Totaux combinés — Transport &amp; Location ({NOMS_MOIS[data.mois - 1]} {data.annee})
+            </h3>
+            <div className="recap-grid" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
+              <div className="recap-box">
+                <div className="label">Chiffre d'affaires total</div>
+                <div className="value">{(data.chiffre_affaires + data.chiffre_affaires_location).toFixed(3)} TND</div>
+              </div>
+              <div className="recap-box">
+                <div className="label">Encaissé total</div>
+                <div className="value">{(data.total_encaisse + data.total_encaisse_location).toFixed(3)} TND</div>
+              </div>
+              <div className="recap-box">
+                <div className="label">Impayé total</div>
+                <div className="value">{(data.total_impaye + data.total_impaye_location).toFixed(3)} TND</div>
+              </div>
+            </div>
+            <p style={{ margin: "0.6rem 0 0", color: "#cdd6e8", fontSize: "0.8rem" }}>
+              Transport : {data.chiffre_affaires.toFixed(3)} TND · Location : {data.chiffre_affaires_location.toFixed(3)} TND
+            </p>
+          </div>
+
+          <div className="card" style={{ marginTop: "1.5rem" }}>
+            <h3 style={{ marginTop: 0, color: "#1f3864" }}>Chiffre d'affaires combiné par jour</h3>
+            <p style={{ marginTop: "-0.5rem", color: "var(--muted)", fontSize: "0.8rem" }}>
+              Mouvements &amp; Facturation (<span style={{ color: "#c0791b", fontWeight: 600 }}>orange</span>) + Mouvements Location (<span style={{ color: "#1f8a70", fontWeight: 600 }}>vert</span>) empilés.
+            </p>
+            <div style={{ display: "flex", alignItems: "flex-end", gap: "3px", height: "160px", overflowX: "auto" }}>
+              {joursCombines.map((j) => {
+                const vide = j.facturation === 0 && j.location === 0;
+                return (
+                  <div
+                    key={j.jour}
+                    title={`${j.jour} : ${j.facturation.toFixed(3)} TND (facturation) + ${j.location.toFixed(3)} TND (location) = ${(j.facturation + j.location).toFixed(3)} TND`}
+                    style={{ flex: "0 0 auto", width: "18px", display: "flex", flexDirection: "column", justifyContent: "flex-end", height: "140px" }}
+                  >
+                    <div
+                      style={{
+                        width: "18px",
+                        height: `${(j.location / maxJourCombine) * 140}px`,
+                        background: j.location > 0 ? "#1f8a70" : "transparent",
+                        borderRadius: j.facturation > 0 ? "3px 3px 0 0" : "3px",
+                      }}
+                    />
+                    <div
+                      style={{
+                        width: "18px",
+                        height: `${vide ? 2 : (j.facturation / maxJourCombine) * 140}px`,
+                        background: vide ? "#e5e5e5" : (j.facturation > 0 ? "#c0791b" : "transparent"),
+                        borderRadius: j.location > 0 ? "0 0 0 0" : "3px 3px 0 0",
+                      }}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{ display: "flex", gap: "3px", marginTop: "4px", fontSize: "0.65rem", color: "var(--muted)" }}>
+              {joursCombines.map((j) => (
+                <div key={j.jour} style={{ flex: "0 0 auto", width: "18px", textAlign: "center" }}>
+                  {j.jour}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="recap-grid" style={{ gridTemplateColumns: "repeat(4, 1fr)", marginTop: "1.5rem" }}>
             <div className="recap-box">
               <div className="label">Chiffre d'affaires ({NOMS_MOIS[data.mois - 1]})</div>
               <div className="value">{data.chiffre_affaires.toFixed(3)} TND</div>
