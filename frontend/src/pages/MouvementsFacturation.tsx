@@ -46,6 +46,7 @@ export default function MouvementsFacturation() {
 
   const [mouvements, setMouvements] = useState<Mouvement[]>([]);
   const [factures, setFactures] = useState<Facture[]>([]);
+  const [factureSelectionnee, setFactureSelectionnee] = useState<Facture | null>(null);
 
   // Modal ajout mouvement
   const [modalMvtOuvert, setModalMvtOuvert] = useState(false);
@@ -95,7 +96,10 @@ export default function MouvementsFacturation() {
     if (!estAdmin) return; // Les gestionnaires n'ont pas accès aux factures.
     const params = new URLSearchParams();
     if (filtreClient) params.set("client_id", filtreClient);
-    setFactures(await api.get<Facture[]>(`/factures/?${params.toString()}`));
+    const data = await api.get<Facture[]>(`/factures/?${params.toString()}`);
+    setFactures(data);
+    // Garde la sélection ouverte à jour (ou la referme si la facture a disparu, ex. suppression).
+    setFactureSelectionnee((prec) => (prec ? data.find((f) => f.id === prec.id) || null : prec));
   }
 
   useEffect(() => {
@@ -346,31 +350,99 @@ export default function MouvementsFacturation() {
       {estAdmin && (
         <>
           <h3 style={{ marginTop: "2rem", color: "#1f3864" }}>Factures</h3>
-          <DataTable<Facture>
-            rows={factures}
-            columns={[
-              { header: "N° facture", render: (f) => f.numero_facture },
-              { header: "Client", render: (f) => f.client?.nom_societe || "—" },
-              { header: "Période", render: (f) => `${f.date_debut} → ${f.date_fin}` },
-              { header: "TTC", render: (f) => `${f.montant_ttc} TND` },
-              { header: "Statut", render: (f) => badgeStatut(f.statut) },
-              {
-                header: "Actions",
-                render: (f) => (
-                  <>
-                    <a className="btn-link" href={pdfUrl(f.id)} target="_blank" rel="noreferrer">Export PDF</a>
-                    {f.statut !== "payee" && (
-                      <button className="btn-link" onClick={() => changerStatutFacture(f, "payee")}>Marquer payée</button>
+          <div className="facture-inbox">
+            <div className="facture-inbox-list">
+              {factures.length === 0 && (
+                <div className="empty-cell">Aucune facture pour ces filtres.</div>
+              )}
+              {factures.map((f) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  className={`facture-inbox-item${factureSelectionnee?.id === f.id ? " active" : ""}${f.statut === "impayee" ? " non-lue" : ""}`}
+                  onClick={() => setFactureSelectionnee(f)}
+                >
+                  <div className="fi-top">
+                    <span className="fi-numero">
+                      {f.statut === "impayee" && <span className="fi-dot" />}
+                      {f.numero_facture}
+                    </span>
+                    {badgeStatut(f.statut)}
+                  </div>
+                  <div className="fi-client">{f.client?.nom_societe || "—"}</div>
+                  <div className="fi-meta">
+                    <span>{f.date_debut} → {f.date_fin}</span>
+                    <span className="fi-montant">{Number(f.montant_ttc).toFixed(3)} TND</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            <div className="facture-inbox-detail">
+              {!factureSelectionnee ? (
+                <div className="facture-inbox-empty">
+                  <p>Sélectionnez une facture à gauche pour l'aperçu — pas besoin de générer le PDF pour la consulter.</p>
+                </div>
+              ) : (
+                <>
+                  <div className="fid-header">
+                    <div>
+                      <h4>{factureSelectionnee.numero_facture}</h4>
+                      <p className="fid-sub">
+                        {factureSelectionnee.client?.nom_societe || "—"} · {factureSelectionnee.date_debut} → {factureSelectionnee.date_fin}
+                      </p>
+                    </div>
+                    {badgeStatut(factureSelectionnee.statut)}
+                  </div>
+
+                  <table className="data-table" style={{ marginTop: "1.1rem" }}>
+                    <thead>
+                      <tr>
+                        <th>Date</th>
+                        <th>Heure</th>
+                        <th>Circuit</th>
+                        <th>Véhicule</th>
+                        <th style={{ textAlign: "right" }}>Prix</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {factureSelectionnee.mouvements.length === 0 && (
+                        <tr><td colSpan={5} className="empty-cell">Aucun mouvement.</td></tr>
+                      )}
+                      {[...factureSelectionnee.mouvements]
+                        .sort((a, b) => `${a.date} ${a.heure}`.localeCompare(`${b.date} ${b.heure}`))
+                        .map((m) => (
+                          <tr key={m.id}>
+                            <td>{m.date}</td>
+                            <td>{m.heure}</td>
+                            <td>{m.circuit ? `${m.circuit.point_depart} → ${m.circuit.point_arrivee}` : "—"}</td>
+                            <td>{m.vehicule ? `${m.vehicule.matricule} (${LABELS_TYPE_VEHICULE[m.vehicule.type_vehicule]})` : "—"}</td>
+                            <td style={{ textAlign: "right" }}>{Number(m.prix_applique).toFixed(3)} TND</td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+
+                  <div className="recap-grid">
+                    <div className="recap-box"><div className="label">Total HT</div><div className="value">{Number(factureSelectionnee.montant_ht).toFixed(3)} TND</div></div>
+                    <div className="recap-box"><div className="label">TVA ({factureSelectionnee.taux_tva}%)</div><div className="value">{Number(factureSelectionnee.montant_tva).toFixed(3)} TND</div></div>
+                    <div className="recap-box"><div className="label">Total TTC</div><div className="value">{Number(factureSelectionnee.montant_ttc).toFixed(3)} TND</div></div>
+                  </div>
+
+                  <div className="fid-actions">
+                    <a className="btn secondary" href={pdfUrl(factureSelectionnee.id)} target="_blank" rel="noreferrer">Exporter en PDF</a>
+                    {factureSelectionnee.statut !== "payee" && (
+                      <button className="btn-link" onClick={() => changerStatutFacture(factureSelectionnee, "payee")}>Marquer payée</button>
                     )}
-                    {f.statut !== "impayee" && (
-                      <button className="btn-link" onClick={() => changerStatutFacture(f, "impayee")}>Marquer impayée</button>
+                    {factureSelectionnee.statut !== "impayee" && (
+                      <button className="btn-link" onClick={() => changerStatutFacture(factureSelectionnee, "impayee")}>Marquer impayée</button>
                     )}
-                    <button className="btn-link" onClick={() => supprimerFacture(f)}>Supprimer</button>
-                  </>
-                ),
-              },
-            ]}
-          />
+                    <button className="btn-link" onClick={() => supprimerFacture(factureSelectionnee)}>Supprimer</button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
         </>
       )}
 

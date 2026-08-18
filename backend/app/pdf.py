@@ -3,6 +3,7 @@ import os
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
 from reportlab.lib import colors
+from reportlab.pdfgen import canvas as pdfcanvas
 from reportlab.platypus import (
     SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
 )
@@ -10,6 +11,53 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
 from . import models
 from .num2words_fr import montant_ttc_en_lettres
+
+LABELS_TYPE_VEHICULE = {
+    "mini_bus": "Mini bus",
+    "quatre_quatre": "4x4",
+    "microbus": "Microbus",
+    "bus": "Bus",
+}
+
+
+def _label_vehicule(vehicule) -> str:
+    """Formate '<matricule> (<type>)' à partir d'un objet Vehicule, ou '—' si absent."""
+    if not vehicule:
+        return "—"
+    valeur_type = vehicule.type_vehicule.value if hasattr(vehicule.type_vehicule, "value") else vehicule.type_vehicule
+    label_type = LABELS_TYPE_VEHICULE.get(valeur_type, valeur_type)
+    return f"{vehicule.matricule} ({label_type})"
+
+
+class _CanvasNumerote(pdfcanvas.Canvas):
+    """Canvas ReportLab qui ajoute un pied de page 'Page X/Y' sur chaque page,
+    en mémorisant l'état de chaque page avant de connaître le total (nécessaire
+    pour afficher le nombre total de pages, connu seulement à la fin du document)."""
+
+    def __init__(self, *args, **kwargs):
+        pdfcanvas.Canvas.__init__(self, *args, **kwargs)
+        self._etats_pages = []
+
+    def showPage(self):
+        self._etats_pages.append(dict(self.__dict__))
+        self._startPage()
+
+    def save(self):
+        total_pages = len(self._etats_pages)
+        for etat in self._etats_pages:
+            self.__dict__.update(etat)
+            self._dessiner_pied_de_page(total_pages)
+            pdfcanvas.Canvas.showPage(self)
+        pdfcanvas.Canvas.save(self)
+
+    def _dessiner_pied_de_page(self, total_pages):
+        page_width, _ = A4
+        self.setFont("Helvetica", 8)
+        self.setFillColor(colors.HexColor("#667085"))
+        texte = f"Page {self._pageNumber}/{total_pages}"
+        self.drawRightString(page_width - 18 * mm, 12 * mm, texte)
+        self.setStrokeColor(colors.HexColor("#E3E6EC"))
+        self.line(18 * mm, 16 * mm, page_width - 18 * mm, 16 * mm)
 
 
 def _generer_facture_pdf_generique(
@@ -26,7 +74,7 @@ def _generer_facture_pdf_generique(
 
     doc = SimpleDocTemplate(
         buffer, pagesize=A4,
-        topMargin=20 * mm, bottomMargin=20 * mm,
+        topMargin=20 * mm, bottomMargin=26 * mm,
         leftMargin=18 * mm, rightMargin=18 * mm,
     )
     styles = getSampleStyleSheet()
@@ -70,23 +118,25 @@ def _generer_facture_pdf_generique(
             elements.append(Paragraph(ligne, normal))
         elements.append(Spacer(1, 8 * mm))
 
-    data = [["Date", "Heure", "Circuit", "Prix (TND)"]]
+    data = [["Date", "Heure", "Circuit", "Véhicule", "Prix (TND)"]]
     for ligne in lignes:
         data.append([
             ligne["date"].strftime("%d/%m/%Y"),
             ligne["heure"].strftime("%H:%M"),
             ligne["circuit"],
+            ligne.get("vehicule", "—"),
             f"{ligne['prix']:.3f}",
         ])
 
-    table = Table(data, colWidths=[28 * mm, 20 * mm, 85 * mm, 30 * mm])
+    table = Table(data, colWidths=[22 * mm, 16 * mm, 62 * mm, 32 * mm, 28 * mm], repeatRows=1)
     table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1F3864")),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
         ("FONTSIZE", (0, 0), (-1, -1), 9),
         ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#CCCCCC")),
         ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F2F2F2")]),
-        ("ALIGN", (3, 0), (3, -1), "RIGHT"),
+        ("ALIGN", (4, 0), (4, -1), "RIGHT"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
     ]))
     elements.append(table)
     elements.append(Spacer(1, 8 * mm))
@@ -116,7 +166,7 @@ def _generer_facture_pdf_generique(
     ))
     elements.append(Spacer(1, 6 * mm))
 
-    doc.build(elements)
+    doc.build(elements, canvasmaker=_CanvasNumerote)
 
 
 def generer_facture_pdf(facture: models.Facture) -> bytes:
@@ -126,6 +176,7 @@ def generer_facture_pdf(facture: models.Facture) -> bytes:
             "date": m.date,
             "heure": m.heure,
             "circuit": f"{m.circuit.point_depart} -> {m.circuit.point_arrivee}",
+            "vehicule": _label_vehicule(m.vehicule),
             "prix": float(m.prix_applique),
         }
         for m in facture.mouvements
@@ -149,7 +200,13 @@ def generer_facture_pdf(facture: models.Facture) -> bytes:
 def generer_facture_location_pdf(facture: "models.FactureLocation") -> bytes:
     buffer = io.BytesIO()
     lignes = [
-        {"date": m.date, "heure": m.heure, "circuit": m.circuit, "prix": float(m.prix)}
+        {
+            "date": m.date,
+            "heure": m.heure,
+            "circuit": m.circuit,
+            "vehicule": _label_vehicule(m.vehicule),
+            "prix": float(m.prix),
+        }
         for m in facture.mouvements
     ]
     _generer_facture_pdf_generique(

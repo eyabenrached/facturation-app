@@ -41,7 +41,9 @@ def liste_factures(
     db: Session = Depends(get_db),
 ):
     q = db.query(models.Facture).options(
-        joinedload(models.Facture.client), joinedload(models.Facture.mouvements)
+        joinedload(models.Facture.client),
+        joinedload(models.Facture.mouvements).joinedload(models.Mouvement.circuit),
+        joinedload(models.Facture.mouvements).joinedload(models.Mouvement.vehicule),
     )
     if client_id:
         q = q.filter(models.Facture.client_id == client_id)
@@ -137,6 +139,7 @@ def export_pdf(facture_id: int, db: Session = Depends(get_db)):
         .options(
             joinedload(models.Facture.client),
             joinedload(models.Facture.mouvements).joinedload(models.Mouvement.circuit),
+            joinedload(models.Facture.mouvements).joinedload(models.Mouvement.vehicule),
         )
         .filter(models.Facture.id == facture_id)
         .first()

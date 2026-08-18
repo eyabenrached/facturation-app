@@ -445,6 +445,106 @@ a { color: inherit; }
   border-top: 2px solid var(--gold);
 }
 
+/* ---------- Factures : vue "boîte de réception" ---------- */
+
+.facture-inbox {
+  display: flex;
+  align-items: flex-start;
+  gap: 1.1rem;
+  animation: fadeUp 0.4s var(--ease) both;
+}
+
+.facture-inbox-list {
+  width: 320px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 600px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.facture-inbox-item {
+  text-align: left;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 3px solid transparent;
+  border-radius: var(--radius-md);
+  padding: 0.7rem 0.85rem;
+  cursor: pointer;
+  font-family: inherit;
+  display: block;
+  width: 100%;
+  transition: border-color 0.15s var(--ease), background 0.15s var(--ease), transform 0.15s var(--ease), box-shadow 0.15s var(--ease);
+}
+.facture-inbox-item:hover { border-color: var(--line-strong); transform: translateX(2px); }
+.facture-inbox-item.active {
+  border-left-color: var(--gold);
+  background: var(--gold-soft);
+  box-shadow: var(--shadow-sm);
+}
+.facture-inbox-item.non-lue .fi-numero,
+.facture-inbox-item.non-lue .fi-client { font-weight: 700; color: var(--ink); }
+
+.fi-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+.fi-numero { font-family: var(--font-display); font-size: 0.92rem; color: var(--ink); display: inline-flex; align-items: center; }
+.fi-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--coral); margin-right: 6px; flex-shrink: 0; }
+.fi-client { font-size: 0.84rem; color: var(--muted); margin-bottom: 4px; font-weight: 500; }
+.fi-meta { display: flex; justify-content: space-between; gap: 8px; font-size: 0.78rem; color: var(--muted-2); }
+.fi-montant { font-weight: 700; color: var(--gold-dark); }
+
+.facture-inbox-detail {
+  flex: 1;
+  min-width: 0;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 1.4rem;
+  box-shadow: var(--shadow-sm);
+  min-height: 280px;
+  animation: fadeUp 0.35s var(--ease) both;
+}
+
+.facture-inbox-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  height: 100%;
+  min-height: 230px;
+  color: var(--muted);
+  font-size: 0.9rem;
+  max-width: 320px;
+  margin: 0 auto;
+}
+
+.fid-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding-bottom: 0.9rem;
+  border-bottom: 1px solid var(--line);
+}
+.fid-header h4 { margin: 0 0 3px; font-size: 1.15rem; }
+.fid-sub { margin: 0; font-size: 0.84rem; color: var(--muted); }
+
+.fid-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-top: 1.1rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--line);
+}
+
+@media (max-width: 960px) {
+  .facture-inbox { flex-direction: column; }
+  .facture-inbox-list { width: 100%; max-height: 320px; }
+}
+
 /* ---------- Page de connexion ---------- */
 
 @keyframes loginCardIn {
