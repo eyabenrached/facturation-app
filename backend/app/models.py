@@ -27,6 +27,18 @@ class TypeVehicule(str, enum.Enum):
     quatre_quatre = "quatre_quatre"
 
 
+class CategorieDepense(str, enum.Enum):
+    """Catégories de dépenses d'exploitation, utilisées pour le module financier."""
+
+    salaire_chauffeur = "salaire_chauffeur"
+    cnss = "cnss"
+    carburant = "carburant"
+    entretien = "entretien"
+    assurance = "assurance"
+    taxe = "taxe"
+    autre = "autre"
+
+
 class Utilisateur(Base):
     __tablename__ = "utilisateurs"
 
@@ -53,6 +65,7 @@ class Chauffeur(Base):
     date_fin_contrat: Mapped[date | None] = mapped_column(Date, nullable=True)
 
     mouvements: Mapped[list["Mouvement"]] = relationship(back_populates="chauffeur")
+    depenses: Mapped[list["Depense"]] = relationship(back_populates="chauffeur")
 
 
 class Client(Base):
@@ -97,6 +110,7 @@ class Vehicule(Base):
 
     agence: Mapped["Agence"] = relationship(back_populates="vehicules")
     mouvements: Mapped[list["Mouvement"]] = relationship(back_populates="vehicule")
+    depenses: Mapped[list["Depense"]] = relationship(back_populates="vehicule")
 
 
 class Circuit(Base):
@@ -225,3 +239,33 @@ class Facture(Base):
 
     client: Mapped["Client"] = relationship(back_populates="factures")
     mouvements: Mapped[list["Mouvement"]] = relationship(back_populates="facture")
+
+
+class Depense(Base):
+    """Dépense d'exploitation de l'entreprise : carburant, entretien, assurance,
+    CNSS/charges sociales, salaires chauffeurs, taxes ou toute autre charge.
+
+    vehicule_id et chauffeur_id sont optionnels et permettent de rattacher une
+    dépense à un véhicule ou à un chauffeur précis (ex. plein de carburant sur
+    un véhicule donné, salaire d'un chauffeur donné) pour calculer le bénéfice
+    par véhicule / par chauffeur. Une dépense générale de l'entreprise (loyer,
+    taxe globale, etc.) peut laisser les deux champs vides.
+    """
+
+    __tablename__ = "depenses"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    categorie: Mapped[CategorieDepense] = mapped_column(
+        Enum(CategorieDepense, name="categorie_depense")
+    )
+    date: Mapped[date] = mapped_column(Date)
+    montant: Mapped[float] = mapped_column(Numeric(12, 3))
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    vehicule_id: Mapped[int | None] = mapped_column(ForeignKey("vehicules.id"), nullable=True)
+    chauffeur_id: Mapped[int | None] = mapped_column(ForeignKey("chauffeurs.id"), nullable=True)
+    transporteur_id: Mapped[int | None] = mapped_column(ForeignKey("agences.id"), nullable=True)
+    date_creation: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    vehicule: Mapped["Vehicule | None"] = relationship(back_populates="depenses")
+    chauffeur: Mapped["Chauffeur | None"] = relationship(back_populates="depenses")
+    transporteur: Mapped["Agence | None"] = relationship(foreign_keys=[transporteur_id])

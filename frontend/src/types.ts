@@ -158,3 +158,97 @@ export interface Facture {
   client?: Client;
   mouvements: Mouvement[];
 }
+
+// ---------- Module financier ----------
+export type CategorieDepense =
+  | "salaire_chauffeur"
+  | "cnss"
+  | "carburant"
+  | "entretien"
+  | "assurance"
+  | "taxe"
+  | "autre";
+
+export const LABELS_CATEGORIE_DEPENSE: Record<CategorieDepense, string> = {
+  salaire_chauffeur: "Dépenses chauffeurs",
+  cnss: "CNSS et charges sociales",
+  carburant: "Carburant",
+  entretien: "Entretien et réparation",
+  assurance: "Assurances",
+  taxe: "Taxes et autres charges",
+  autre: "Autres dépenses d'exploitation",
+};
+
+export interface Depense {
+  id: number;
+  categorie: CategorieDepense;
+  date: string;
+  montant: number;
+  description: string | null;
+  vehicule_id: number | null;
+  chauffeur_id: number | null;
+  transporteur_id: number | null;
+  date_creation: string;
+  vehicule?: Vehicule;
+  chauffeur?: Chauffeur;
+  transporteur?: Agence;
+}
+
+export interface DepenseParCategorie {
+  categorie: CategorieDepense;
+  label: string;
+  total: number;
+}
+
+export interface BeneficeParClient {
+  client_id: number | null;
+  nom_client: string;
+  nb_mouvements: number;
+  revenu: number;
+  depenses_allouees: number;
+  benefice: number;
+  marge_pct: number;
+}
+
+export interface BeneficeParVehicule {
+  vehicule_id: number;
+  matricule: string;
+  nb_mouvements: number;
+  revenu: number;
+  depenses: number;
+  benefice: number;
+}
+
+export interface ResumeFinancier {
+  date_du: string;
+  date_au: string;
+  chiffre_affaires_transport: number;
+  chiffre_affaires_location: number;
+  total_revenus: number;
+  nb_mouvements: number;
+  depenses_par_categorie: DepenseParCategorie[];
+  total_depenses: number;
+  benefice_net: number;
+  marge_beneficiaire: number;
+  benefice_par_client: BeneficeParClient[];
+  benefice_par_vehicule: BeneficeParVehicule[];
+}
+
+export interface BeneficeParMouvement {
+  type: "transport" | "location";
+  mouvement_id: number;
+  date: string;
+  heure: string;
+  client: string;
+  vehicule: string;
+  revenu: number;
+  cout_estime: number;
+  benefice: number;
+}
+
+export interface EvolutionMensuelle {
+  mois: number;
+  revenus: number;
+  depenses: number;
+  benefice: number;
+}

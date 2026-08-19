@@ -1,6 +1,6 @@
 from datetime import date, time, datetime
 from pydantic import BaseModel, EmailStr, ConfigDict
-from .models import StatutFacture, RoleUtilisateur, TypeVehicule
+from .models import StatutFacture, RoleUtilisateur, TypeVehicule, CategorieDepense
 
 
 # ---------- Authentification / Utilisateurs ----------
@@ -277,3 +277,27 @@ class FactureStatutUpdate(BaseModel):
 
 class NextNumeroOut(BaseModel):
     numero_suggere: str
+
+
+# ---------- Dépenses (module financier) ----------
+class DepenseBase(BaseModel):
+    categorie: CategorieDepense
+    date: date
+    montant: float
+    description: str | None = None
+    vehicule_id: int | None = None
+    chauffeur_id: int | None = None
+    transporteur_id: int | None = None
+
+
+class DepenseCreate(DepenseBase):
+    pass
+
+
+class DepenseOut(DepenseBase):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    date_creation: datetime
+    vehicule: VehiculeOut | None = None
+    chauffeur: ChauffeurOut | None = None
+    transporteur: AgenceOut | None = None
