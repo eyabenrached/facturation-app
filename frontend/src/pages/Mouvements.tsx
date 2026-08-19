@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { api, pdfUrl } from "../api";
-import { Mouvement, Client, Circuit, Chauffeur, Vehicule, Agence, Facture, StatutFacture, LABELS_TYPE_VEHICULE } from "../types";
+import { api } from "../api";
+import { Mouvement, Client, Circuit, Chauffeur, Vehicule, Agence } from "../types";
 import { DataTable } from "../components/DataTable";
 import { Modal } from "../components/Modal";
 import { RecapTransporteurs } from "../components/RecapTransporteurs";
@@ -19,12 +19,7 @@ const VIDE_MOUVEMENT = {
   nb_personnes: null as number | null,
 };
 
-function badgeStatut(s: StatutFacture) {
-  const label = s === "payee" ? "Payée" : s === "impayee" ? "Impayée" : "Partielle";
-  return <span className={`badge ${s}`}>{label}</span>;
-}
-
-export default function MouvementsFacturation() {
+export default function Mouvements() {
   const { utilisateur } = useAuth();
   const estAdmin = utilisateur?.role === "administrateur";
 
@@ -45,8 +40,6 @@ export default function MouvementsFacturation() {
   const [filtreChauffeur, setFiltreChauffeur] = useState("");
 
   const [mouvements, setMouvements] = useState<Mouvement[]>([]);
-  const [factures, setFactures] = useState<Facture[]>([]);
-  const [factureSelectionnee, setFactureSelectionnee] = useState<Facture | null>(null);
 
   // Modal ajout mouvement
   const [modalMvtOuvert, setModalMvtOuvert] = useState(false);
@@ -54,11 +47,6 @@ export default function MouvementsFacturation() {
   const [formMvt, setFormMvt] = useState(VIDE_MOUVEMENT);
   const [prixSuggere, setPrixSuggere] = useState<number | null>(null);
   const [erreurMvt, setErreurMvt] = useState("");
-
-  // Modal génération facture
-  const [modalFactureOuvert, setModalFactureOuvert] = useState(false);
-  const [numeroFacture, setNumeroFacture] = useState("");
-  const [erreurFacture, setErreurFacture] = useState("");
 
   useEffect(() => {
     api.get<Client[]>("/clients/").then(setClients);
@@ -92,19 +80,8 @@ export default function MouvementsFacturation() {
     setMouvements(await api.get<Mouvement[]>(`/mouvements/?${params.toString()}`));
   }
 
-  async function chargerFactures() {
-    if (!estAdmin) return; // Les gestionnaires n'ont pas accès aux factures.
-    const params = new URLSearchParams();
-    if (filtreClient) params.set("client_id", filtreClient);
-    const data = await api.get<Facture[]>(`/factures/?${params.toString()}`);
-    setFactures(data);
-    // Garde la sélection ouverte à jour (ou la referme si la facture a disparu, ex. suppression).
-    setFactureSelectionnee((prec) => (prec ? data.find((f) => f.id === prec.id) || null : prec));
-  }
-
   useEffect(() => {
     chargerMouvements();
-    chargerFactures();
   }, [dateDu, dateAu, filtreClient, filtreStatutMvt, filtreHeure, filtreTransporteur, filtreChauffeur]);
 
   // ---------- Ajout d'un mouvement ----------
@@ -185,65 +162,10 @@ export default function MouvementsFacturation() {
     }
   }
 
-  // ---------- Génération de facture ----------
-  const mouvementsNonFactures = mouvements.filter((m) => !m.facture_id);
-  const totalHT = mouvementsNonFactures.reduce((s, m) => s + Number(m.prix_applique), 0);
-  const client = clients.find((c) => c.id === Number(filtreClient));
-  const tauxTva = client?.taux_tva ?? 19;
-  const montantTva = Math.round(totalHT * tauxTva) / 100;
-  const totalTTC = Math.round((totalHT + montantTva) * 1000) / 1000;
-
-  async function ouvrirGenerationFacture() {
-    if (!filtreClient || !dateDu || !dateAu) {
-      alert("Sélectionnez un client et une période (date du / au) avant de générer une facture.");
-      return;
-    }
-    setErreurFacture("");
-    const res = await api.get<{ numero_suggere: string }>("/factures/next-numero");
-    setNumeroFacture(res.numero_suggere); // auto par défaut, modifiable ci-dessous
-    setModalFactureOuvert(true);
-  }
-
-  async function confirmerFacture() {
-    setErreurFacture("");
-    try {
-      await api.post("/factures/", {
-        client_id: Number(filtreClient),
-        date_debut: dateDu,
-        date_fin: dateAu,
-        numero_facture: numeroFacture,
-      });
-      setModalFactureOuvert(false);
-      chargerMouvements();
-      chargerFactures();
-    } catch (e) {
-      setErreurFacture((e as Error).message);
-    }
-  }
-
-  async function changerStatutFacture(f: Facture, statut: StatutFacture) {
-    await api.patch(`/factures/${f.id}/statut`, {
-      statut,
-      date_paiement: statut === "payee" ? new Date().toISOString().slice(0, 10) : null,
-    });
-    chargerFactures();
-  }
-
-  async function supprimerFacture(f: Facture) {
-    if (!confirm(`Supprimer la facture ${f.numero_facture} ? Les mouvements liés redeviendront non facturés.`)) return;
-    try {
-      await api.delete(`/factures/${f.id}`);
-      chargerFactures();
-      chargerMouvements();
-    } catch (e) {
-      alert((e as Error).message);
-    }
-  }
-
   return (
     <div>
       <div className="page-header">
-        <h2>Mouvements &amp; Facturation</h2>
+        <h2>Mouvements</h2>
         <button className="btn" onClick={ouvrirAjoutMouvement}>+ Ajouter un mouvement</button>
       </div>
 
@@ -329,123 +251,6 @@ export default function MouvementsFacturation() {
         ]}
       />
 
-      {estAdmin && filtreClient && dateDu && dateAu && (
-        <div className="card" style={{ marginTop: "1.25rem" }}>
-          <h3 style={{ marginTop: 0, color: "#1f3864" }}>
-            Récapitulatif — {client?.nom_societe} ({dateDu} → {dateAu})
-          </h3>
-          <div className="recap-grid">
-            <div className="recap-box"><div className="label">Total HT</div><div className="value">{totalHT.toFixed(3)} TND</div></div>
-            <div className="recap-box"><div className="label">TVA ({tauxTva}%)</div><div className="value">{montantTva.toFixed(3)} TND</div></div>
-            <div className="recap-box"><div className="label">Total TTC</div><div className="value">{totalTTC.toFixed(3)} TND</div></div>
-          </div>
-          <div className="form-actions">
-            <button className="btn" disabled={mouvementsNonFactures.length === 0} onClick={ouvrirGenerationFacture}>
-              Générer la facture ({mouvementsNonFactures.length} mouvement(s) non facturé(s))
-            </button>
-          </div>
-        </div>
-      )}
-
-      {estAdmin && (
-        <>
-          <h3 style={{ marginTop: "2rem", color: "#1f3864" }}>Factures</h3>
-          <div className="facture-inbox">
-            <div className="facture-inbox-list">
-              {factures.length === 0 && (
-                <div className="empty-cell">Aucune facture pour ces filtres.</div>
-              )}
-              {factures.map((f) => (
-                <button
-                  key={f.id}
-                  type="button"
-                  className={`facture-inbox-item${factureSelectionnee?.id === f.id ? " active" : ""}${f.statut === "impayee" ? " non-lue" : ""}`}
-                  onClick={() => setFactureSelectionnee(f)}
-                >
-                  <div className="fi-top">
-                    <span className="fi-numero">
-                      {f.statut === "impayee" && <span className="fi-dot" />}
-                      {f.numero_facture}
-                    </span>
-                    {badgeStatut(f.statut)}
-                  </div>
-                  <div className="fi-client">{f.client?.nom_societe || "—"}</div>
-                  <div className="fi-meta">
-                    <span>{f.date_debut} → {f.date_fin}</span>
-                    <span className="fi-montant">{Number(f.montant_ttc).toFixed(3)} TND</span>
-                  </div>
-                </button>
-              ))}
-            </div>
-
-            <div className="facture-inbox-detail">
-              {!factureSelectionnee ? (
-                <div className="facture-inbox-empty">
-                  <p>Sélectionnez une facture à gauche pour l'aperçu — pas besoin de générer le PDF pour la consulter.</p>
-                </div>
-              ) : (
-                <>
-                  <div className="fid-header">
-                    <div>
-                      <h4>{factureSelectionnee.numero_facture}</h4>
-                      <p className="fid-sub">
-                        {factureSelectionnee.client?.nom_societe || "—"} · {factureSelectionnee.date_debut} → {factureSelectionnee.date_fin}
-                      </p>
-                    </div>
-                    {badgeStatut(factureSelectionnee.statut)}
-                  </div>
-
-                  <table className="data-table" style={{ marginTop: "1.1rem" }}>
-                    <thead>
-                      <tr>
-                        <th>Date</th>
-                        <th>Heure</th>
-                        <th>Circuit</th>
-                        <th>Véhicule</th>
-                        <th style={{ textAlign: "right" }}>Prix</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {factureSelectionnee.mouvements.length === 0 && (
-                        <tr><td colSpan={5} className="empty-cell">Aucun mouvement.</td></tr>
-                      )}
-                      {[...factureSelectionnee.mouvements]
-                        .sort((a, b) => `${a.date} ${a.heure}`.localeCompare(`${b.date} ${b.heure}`))
-                        .map((m) => (
-                          <tr key={m.id}>
-                            <td>{m.date}</td>
-                            <td>{m.heure}</td>
-                            <td>{m.circuit ? `${m.circuit.point_depart} → ${m.circuit.point_arrivee}` : "—"}</td>
-                            <td>{m.vehicule ? `${m.vehicule.matricule} (${LABELS_TYPE_VEHICULE[m.vehicule.type_vehicule]})` : "—"}</td>
-                            <td style={{ textAlign: "right" }}>{Number(m.prix_applique).toFixed(3)} TND</td>
-                          </tr>
-                        ))}
-                    </tbody>
-                  </table>
-
-                  <div className="recap-grid">
-                    <div className="recap-box"><div className="label">Total HT</div><div className="value">{Number(factureSelectionnee.montant_ht).toFixed(3)} TND</div></div>
-                    <div className="recap-box"><div className="label">TVA ({factureSelectionnee.taux_tva}%)</div><div className="value">{Number(factureSelectionnee.montant_tva).toFixed(3)} TND</div></div>
-                    <div className="recap-box"><div className="label">Total TTC</div><div className="value">{Number(factureSelectionnee.montant_ttc).toFixed(3)} TND</div></div>
-                  </div>
-
-                  <div className="fid-actions">
-                    <a className="btn secondary" href={pdfUrl(factureSelectionnee.id)} target="_blank" rel="noreferrer">Exporter en PDF</a>
-                    {factureSelectionnee.statut !== "payee" && (
-                      <button className="btn-link" onClick={() => changerStatutFacture(factureSelectionnee, "payee")}>Marquer payée</button>
-                    )}
-                    {factureSelectionnee.statut !== "impayee" && (
-                      <button className="btn-link" onClick={() => changerStatutFacture(factureSelectionnee, "impayee")}>Marquer impayée</button>
-                    )}
-                    <button className="btn-link" onClick={() => supprimerFacture(factureSelectionnee)}>Supprimer</button>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        </>
-      )}
-
       {/* Modal : ajout d'un mouvement */}
       {modalMvtOuvert && (
         <Modal title={mouvementEnEdition ? "Modifier le mouvement" : "Nouveau mouvement"} onClose={() => setModalMvtOuvert(false)}>
@@ -493,7 +298,7 @@ export default function MouvementsFacturation() {
                 <option value="">—</option>
                 {vehicules.map((v) => (
                   <option key={v.id} value={v.id}>
-                    {v.matricule} ({LABELS_TYPE_VEHICULE[v.type_vehicule]})
+                    {v.matricule} ({v.type_vehicule})
                   </option>
                 ))}
               </select>
@@ -526,26 +331,6 @@ export default function MouvementsFacturation() {
           <div className="form-actions">
             <button className="btn secondary" onClick={() => setModalMvtOuvert(false)}>Annuler</button>
             <button className="btn" onClick={enregistrerMouvement}>Enregistrer</button>
-          </div>
-        </Modal>
-      )}
-
-      {/* Modal : génération de facture avec numéro auto mais modifiable */}
-      {modalFactureOuvert && (
-        <Modal title="Générer la facture" onClose={() => setModalFactureOuvert(false)}>
-          {erreurFacture && <p className="error-msg">{erreurFacture}</p>}
-          <div className="form-field" style={{ marginBottom: "1rem" }}>
-            <label>Numéro de facture (généré automatiquement — modifiable si besoin)</label>
-            <input value={numeroFacture} onChange={(e) => setNumeroFacture(e.target.value)} />
-          </div>
-          <div className="recap-grid">
-            <div className="recap-box"><div className="label">Total HT</div><div className="value">{totalHT.toFixed(3)} TND</div></div>
-            <div className="recap-box"><div className="label">TVA ({tauxTva}%)</div><div className="value">{montantTva.toFixed(3)} TND</div></div>
-            <div className="recap-box"><div className="label">Total TTC</div><div className="value">{totalTTC.toFixed(3)} TND</div></div>
-          </div>
-          <div className="form-actions">
-            <button className="btn secondary" onClick={() => setModalFactureOuvert(false)}>Annuler</button>
-            <button className="btn" onClick={confirmerFacture}>Valider et générer</button>
           </div>
         </Modal>
       )}

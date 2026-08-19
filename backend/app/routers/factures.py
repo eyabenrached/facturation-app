@@ -151,5 +151,5 @@ def export_pdf(facture_id: int, db: Session = Depends(get_db)):
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{facture.numero_facture}.pdf"'},
+        headers={"Content-Disposition": f'inline; filename="{facture.numero_facture}.pdf"'},
     )

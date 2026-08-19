@@ -7,7 +7,8 @@ import Clients from "./pages/Clients";
 import Agences from "./pages/Agences";
 import Vehicules from "./pages/Vehicules";
 import Circuits from "./pages/Circuits";
-import MouvementsFacturation from "./pages/MouvementsFacturation";
+import Mouvements from "./pages/Mouvements";
+import Factures from "./pages/Factures";
 import MouvementsLocation from "./pages/MouvementsLocation";
 import Utilisateurs from "./pages/Utilisateurs";
 
@@ -40,8 +41,13 @@ function Sidebar() {
           </NavLink>
         ))}
         <NavLink to="/mouvements" className={({ isActive }) => (isActive ? "active" : "")}>
-          Mouvements &amp; Facturation
+          Mouvements
         </NavLink>
+        {estAdmin && (
+          <NavLink to="/factures" className={({ isActive }) => (isActive ? "active" : "")}>
+            Factures
+          </NavLink>
+        )}
         <NavLink to="/mouvements-location" className={({ isActive }) => (isActive ? "active" : "")}>
           Mouvements Location
         </NavLink>
@@ -81,7 +87,8 @@ function RoutesProtegees() {
           <Route path="/agences" element={<Agences />} />
           <Route path="/vehicules" element={<Vehicules />} />
           <Route path="/circuits" element={<Circuits />} />
-          <Route path="/mouvements" element={<MouvementsFacturation />} />
+          <Route path="/mouvements" element={<Mouvements />} />
+          {estAdmin && <Route path="/factures" element={<Factures />} />}
           <Route path="/mouvements-location" element={<MouvementsLocation />} />
           {estAdmin && <Route path="/utilisateurs" element={<Utilisateurs />} />}
           <Route path="*" element={<Navigate to="/mouvements" replace />} />
