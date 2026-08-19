@@ -50,11 +50,15 @@
 
 html, body {
   margin: 0;
+  width: 100%;
+  min-height: 100%;
   background: var(--paper);
   color: var(--ink);
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
 }
+
+#root { width: 100%; }
 
 h1, h2, h3, h4 {
   font-family: var(--font-display);
@@ -91,7 +95,7 @@ a { color: inherit; }
 
 /* ---------- Structure générale ---------- */
 
-.app-layout { display: flex; min-height: 100vh; }
+.app-layout { display: flex; min-height: 100vh; width: 100%; }
 
 .sidebar {
   width: 240px;
@@ -659,6 +663,8 @@ a:focus-visible, button:focus-visible {
     gap: 0.9rem;
     position: sticky;
     top: 0;
+    left: 0;
+    width: 100%;
     z-index: 30;
     background: linear-gradient(190deg, var(--navy) 0%, var(--navy-deep) 100%);
     padding: 0.9rem 1.1rem;
