@@ -52,6 +52,7 @@ html, body {
   margin: 0;
   width: 100%;
   min-height: 100%;
+  overflow-x: hidden;
   background: var(--paper);
   color: var(--ink);
   font-family: var(--font-body);
@@ -438,6 +439,8 @@ a { color: inherit; }
 /* ---------- Récapitulatifs ---------- */
 
 .recap-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin: 1.1rem 0; }
+.recap-grid-3 { grid-template-columns: repeat(3, 1fr); }
+.recap-grid-4 { grid-template-columns: repeat(4, 1fr); }
 .recap-box {
   background: var(--paper);
   border: 1px solid var(--line);

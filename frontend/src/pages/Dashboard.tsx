@@ -117,7 +117,7 @@ export default function Dashboard() {
             <h3 style={{ marginTop: 0, color: "#fff" }}>
               Totaux combinés — Transport &amp; Location ({NOMS_MOIS[data.mois - 1]} {data.annee})
             </h3>
-            <div className="recap-grid" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
+            <div className="recap-grid recap-grid-3">
               <div className="recap-box">
                 <div className="label">Chiffre d'affaires total</div>
                 <div className="value">{(data.chiffre_affaires + data.chiffre_affaires_location).toFixed(3)} TND</div>
@@ -179,7 +179,7 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="recap-grid" style={{ gridTemplateColumns: "repeat(4, 1fr)", marginTop: "1.5rem" }}>
+          <div className="recap-grid recap-grid-4" style={{ marginTop: "1.5rem" }}>
             <div className="recap-box">
               <div className="label">Chiffre d'affaires ({NOMS_MOIS[data.mois - 1]})</div>
               <div className="value">{data.chiffre_affaires.toFixed(3)} TND</div>
@@ -257,7 +257,7 @@ export default function Dashboard() {
 
           <h3 style={{ marginTop: "2rem", color: "#1f3864" }}>Mouvements Location</h3>
 
-          <div className="recap-grid" style={{ gridTemplateColumns: "repeat(4, 1fr)" }}>
+          <div className="recap-grid recap-grid-4">
             <div className="recap-box">
               <div className="label">Chiffre d'affaires location ({NOMS_MOIS[data.mois - 1]})</div>
               <div className="value">{data.chiffre_affaires_location.toFixed(3)} TND</div>
