@@ -107,8 +107,10 @@ a { color: inherit; }
   display: flex;
   flex-direction: column;
   height: 100vh;
-  position: sticky;
+  position: fixed;
   top: 0;
+  left: 0;
+  z-index: 20;
   overflow: hidden;
   box-shadow: 2px 0 24px rgba(6, 15, 30, 0.25);
 }
@@ -213,6 +215,7 @@ a { color: inherit; }
 
 .content {
   flex: 1;
+  margin-left: 240px;
   padding: 2.25rem 2.5rem;
   max-width: 1180px;
   animation: contentFadeIn 0.45s var(--ease) both;
@@ -649,7 +652,7 @@ a:focus-visible, button:focus-visible {
 /* ---------- Responsive ---------- */
 @media (max-width: 860px) {
   .app-layout { flex-direction: column; }
-  .content { padding: 1.25rem; }
+  .content { margin-left: 0; padding: 1.25rem; }
   .form-grid, .recap-grid { grid-template-columns: 1fr; }
 }
 
