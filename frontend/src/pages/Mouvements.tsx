@@ -20,8 +20,7 @@ const VIDE_MOUVEMENT = {
 };
 
 export default function Mouvements() {
-  const { utilisateur } = useAuth();
-  const estAdmin = utilisateur?.role === "administrateur";
+  useAuth();
 
   // Référentiels
   const [clients, setClients] = useState<Client[]>([]);
@@ -232,7 +231,7 @@ export default function Mouvements() {
           { header: "Chauffeur", render: (m) => (m.chauffeur ? `${m.chauffeur.prenom} ${m.chauffeur.nom}` : "—") },
           { header: "Véhicule", render: (m) => m.vehicule?.matricule || "—" },
           { header: "Nb pers.", render: (m) => m.nb_personnes ?? "—" },
-          ...(estAdmin ? [{ header: "Prix", render: (m: Mouvement) => `${m.prix_applique} TND` }] : []),
+          { header: "Prix", render: (m: Mouvement) => `${m.prix_applique} TND` },
           { header: "Statut", render: (m) => (m.facture_id ? "Facturé" : "Non facturé") },
           {
             header: "Actions",
