@@ -47,6 +47,13 @@ export default function Mouvements() {
   const [prixSuggere, setPrixSuggere] = useState<number | null>(null);
   const [erreurMvt, setErreurMvt] = useState("");
 
+  // Sélection de mouvements "à refaire" (pour changer leur date en une fois)
+  const [modeSelection, setModeSelection] = useState(false);
+  const [selectionnes, setSelectionnes] = useState<Set<number>>(new Set());
+  const [modalDateGroupeOuvert, setModalDateGroupeOuvert] = useState(false);
+  const [nouvelleDateGroupe, setNouvelleDateGroupe] = useState("");
+  const [erreurDateGroupe, setErreurDateGroupe] = useState("");
+
   useEffect(() => {
     api.get<Client[]>("/clients/").then(setClients);
     api.get<Circuit[]>("/circuits/").then((data) =>
@@ -161,11 +168,75 @@ export default function Mouvements() {
     }
   }
 
+  // ---------- Sélection de mouvements à refaire (changement de date groupé) ----------
+  function basculerModeSelection() {
+    setModeSelection(!modeSelection);
+    setSelectionnes(new Set());
+  }
+
+  function basculerSelection(id: number) {
+    setSelectionnes((prec) => {
+      const suivant = new Set(prec);
+      if (suivant.has(id)) suivant.delete(id);
+      else suivant.add(id);
+      return suivant;
+    });
+  }
+
+  const mouvementsSelectionnables = mouvements.filter((m) => !m.facture_id);
+  const toutSelectionne =
+    mouvementsSelectionnables.length > 0 &&
+    mouvementsSelectionnables.every((m) => selectionnes.has(m.id));
+
+  function basculerToutSelectionner() {
+    if (toutSelectionne) {
+      setSelectionnes(new Set());
+    } else {
+      setSelectionnes(new Set(mouvementsSelectionnables.map((m) => m.id)));
+    }
+  }
+
+  function ouvrirModalDateGroupe() {
+    setNouvelleDateGroupe("");
+    setErreurDateGroupe("");
+    setModalDateGroupeOuvert(true);
+  }
+
+  async function appliquerDateGroupe() {
+    setErreurDateGroupe("");
+    if (!nouvelleDateGroupe) {
+      setErreurDateGroupe("Veuillez choisir une date.");
+      return;
+    }
+    try {
+      await api.put("/mouvements/changer-date-groupe", {
+        ids: Array.from(selectionnes),
+        nouvelle_date: nouvelleDateGroupe,
+      });
+      setModalDateGroupeOuvert(false);
+      setModeSelection(false);
+      setSelectionnes(new Set());
+      chargerMouvements();
+    } catch (e) {
+      setErreurDateGroupe((e as Error).message);
+    }
+  }
+
   return (
     <div>
       <div className="page-header">
         <h2>Mouvements</h2>
-        <button className="btn" onClick={ouvrirAjoutMouvement}>+ Ajouter un mouvement</button>
+        <div style={{ display: "flex", gap: "0.5rem" }}>
+          {modeSelection && selectionnes.size > 0 && (
+            <button className="btn" onClick={ouvrirModalDateGroupe}>
+              Modifier la date ({selectionnes.size} sélectionné{selectionnes.size > 1 ? "s" : ""})
+            </button>
+          )}
+          <button className="btn secondary" onClick={basculerModeSelection}>
+            {modeSelection ? "Annuler la sélection" : "Sélectionner des mouvements à refaire"}
+          </button>
+          <button className="btn" onClick={ouvrirAjoutMouvement}>+ Ajouter un mouvement</button>
+        </div>
       </div>
 
       <div className="toolbar">
@@ -223,6 +294,30 @@ export default function Mouvements() {
       <DataTable<Mouvement>
         rows={mouvements}
         columns={[
+          ...(modeSelection
+            ? [
+                {
+                  header: (
+                    <input
+                      type="checkbox"
+                      checked={toutSelectionne}
+                      onChange={basculerToutSelectionner}
+                      title="Tout sélectionner"
+                    />
+                  ),
+                  render: (m: Mouvement) =>
+                    m.facture_id ? (
+                      "—"
+                    ) : (
+                      <input
+                        type="checkbox"
+                        checked={selectionnes.has(m.id)}
+                        onChange={() => basculerSelection(m.id)}
+                      />
+                    ),
+                },
+              ]
+            : []),
           { header: "Date", render: (m) => m.date },
           { header: "Heure", render: (m) => m.heure },
           { header: "Client", render: (m) => m.client?.nom_societe || "—" },
@@ -330,6 +425,28 @@ export default function Mouvements() {
           <div className="form-actions">
             <button className="btn secondary" onClick={() => setModalMvtOuvert(false)}>Annuler</button>
             <button className="btn" onClick={enregistrerMouvement}>Enregistrer</button>
+          </div>
+        </Modal>
+      )}
+
+      {/* Modal : changement de date groupé (mouvements à refaire) */}
+      {modalDateGroupeOuvert && (
+        <Modal
+          title={`Modifier la date de ${selectionnes.size} mouvement${selectionnes.size > 1 ? "s" : ""}`}
+          onClose={() => setModalDateGroupeOuvert(false)}
+        >
+          {erreurDateGroupe && <p className="error-msg">{erreurDateGroupe}</p>}
+          <div className="form-field" style={{ marginBottom: "1rem" }}>
+            <label>Nouvelle date</label>
+            <input
+              type="date"
+              value={nouvelleDateGroupe}
+              onChange={(e) => setNouvelleDateGroupe(e.target.value)}
+            />
+          </div>
+          <div className="form-actions">
+            <button className="btn secondary" onClick={() => setModalDateGroupeOuvert(false)}>Annuler</button>
+            <button className="btn" onClick={appliquerDateGroupe}>Appliquer</button>
           </div>
         </Modal>
       )}

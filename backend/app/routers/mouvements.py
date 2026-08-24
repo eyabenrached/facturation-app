@@ -95,6 +95,31 @@ def creer_mouvement(payload: schemas.MouvementCreate, db: Session = Depends(get_
     return obj
 
 
+@router.put("/changer-date-groupe", response_model=list[schemas.MouvementOut], dependencies=[Depends(exiger_utilisateur_connecte)])
+def changer_date_groupe(payload: schemas.MouvementsChangerDateIn, db: Session = Depends(get_db)):
+    """Modifie la date d'une sélection de mouvements (ex : mouvements à refaire)."""
+    if not payload.ids:
+        raise HTTPException(400, "Aucun mouvement sélectionné.")
+
+    objs = db.query(models.Mouvement).filter(models.Mouvement.id.in_(payload.ids)).all()
+    trouves = {o.id for o in objs}
+    manquants = set(payload.ids) - trouves
+    if manquants:
+        raise HTTPException(404, f"Mouvement(s) introuvable(s) : {sorted(manquants)}")
+
+    deja_factures = [o.id for o in objs if o.facture_id is not None]
+    if deja_factures:
+        raise HTTPException(400, f"Mouvement(s) déjà facturé(s), modification bloquée : {sorted(deja_factures)}")
+
+    for obj in objs:
+        obj.date = payload.nouvelle_date
+
+    db.commit()
+    for obj in objs:
+        db.refresh(obj)
+    return objs
+
+
 @router.put("/{mouvement_id}", response_model=schemas.MouvementOut, dependencies=[Depends(exiger_utilisateur_connecte)])
 def modifier_mouvement(mouvement_id: int, payload: schemas.MouvementCreate, db: Session = Depends(get_db)):
     obj = db.query(models.Mouvement).get(mouvement_id)

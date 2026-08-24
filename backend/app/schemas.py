@@ -177,6 +177,12 @@ class MouvementOut(MouvementBase):
     transporteur: AgenceOut | None = None
 
 
+class MouvementsChangerDateIn(BaseModel):
+    """Modification groupée de la date pour une sélection de mouvements (à refaire)."""
+    ids: list[int]
+    nouvelle_date: date
+
+
 # ---------- Mouvements Location (indépendants de la facturation) ----------
 class MouvementLocationBase(BaseModel):
     date: date
