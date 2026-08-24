@@ -177,8 +177,8 @@ class MouvementOut(MouvementBase):
     transporteur: AgenceOut | None = None
 
 
-class MouvementsChangerDateIn(BaseModel):
-    """Modification groupée de la date pour une sélection de mouvements (à refaire)."""
+class MouvementsDupliquerGroupeIn(BaseModel):
+    """Duplication groupée à une nouvelle date pour une sélection de mouvements (à refaire)."""
     ids: list[int]
     nouvelle_date: date
 

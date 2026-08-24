@@ -95,9 +95,10 @@ def creer_mouvement(payload: schemas.MouvementCreate, db: Session = Depends(get_
     return obj
 
 
-@router.put("/changer-date-groupe", response_model=list[schemas.MouvementOut], dependencies=[Depends(exiger_utilisateur_connecte)])
-def changer_date_groupe(payload: schemas.MouvementsChangerDateIn, db: Session = Depends(get_db)):
-    """Modifie la date d'une sélection de mouvements (ex : mouvements à refaire)."""
+@router.post("/dupliquer-groupe", response_model=list[schemas.MouvementOut], status_code=201, dependencies=[Depends(exiger_utilisateur_connecte)])
+def dupliquer_groupe(payload: schemas.MouvementsDupliquerGroupeIn, db: Session = Depends(get_db)):
+    """Duplique une sélection de mouvements (ex : mouvements à refaire) à une nouvelle date.
+    Les mouvements d'origine restent inchangés ; les copies créées sont toujours non facturées."""
     if not payload.ids:
         raise HTTPException(400, "Aucun mouvement sélectionné.")
 
@@ -107,17 +108,24 @@ def changer_date_groupe(payload: schemas.MouvementsChangerDateIn, db: Session = 
     if manquants:
         raise HTTPException(404, f"Mouvement(s) introuvable(s) : {sorted(manquants)}")
 
-    deja_factures = [o.id for o in objs if o.facture_id is not None]
-    if deja_factures:
-        raise HTTPException(400, f"Mouvement(s) déjà facturé(s), modification bloquée : {sorted(deja_factures)}")
-
+    nouveaux = []
     for obj in objs:
-        obj.date = payload.nouvelle_date
-
+        nouveaux.append(models.Mouvement(
+            date=payload.nouvelle_date,
+            heure=obj.heure,
+            client_id=obj.client_id,
+            circuit_id=obj.circuit_id,
+            chauffeur_id=obj.chauffeur_id,
+            vehicule_id=obj.vehicule_id,
+            transporteur_id=obj.transporteur_id,
+            nb_personnes=obj.nb_personnes,
+            prix_applique=obj.prix_applique,
+        ))
+    db.add_all(nouveaux)
     db.commit()
-    for obj in objs:
-        db.refresh(obj)
-    return objs
+    for n in nouveaux:
+        db.refresh(n)
+    return nouveaux
 
 
 @router.put("/{mouvement_id}", response_model=schemas.MouvementOut, dependencies=[Depends(exiger_utilisateur_connecte)])
