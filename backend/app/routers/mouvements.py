@@ -1,4 +1,5 @@
 from datetime import date
+from datetime import time as time_cls
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
 
@@ -54,7 +55,8 @@ def liste_mouvements(
     if circuit_id:
         q = q.filter(models.Mouvement.circuit_id == circuit_id)
     if heure:
-        q = q.filter(models.Mouvement.heure == heure)
+        h, m = heure.split(":")[:2]
+        q = q.filter(models.Mouvement.heure == time_cls(int(h), int(m)))
     if transporteur_id:
         q = q.filter(models.Mouvement.transporteur_id == transporteur_id)
     if chauffeur_id:
