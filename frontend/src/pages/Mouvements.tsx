@@ -6,7 +6,7 @@ import { Modal } from "../components/Modal";
 import { RecapTransporteurs } from "../components/RecapTransporteurs";
 import { useAuth } from "../auth/AuthContext";
 
-const LISTE_PRIX = [70, 80, 90, 100, 110, 120, 125, 130, 135, 150, 160, 180];
+const LISTE_PRIX = [70, 80, 90, 100, 110, 120, 125, 130, 135, 150, 160, 180, 225];
 
 const VIDE_MOUVEMENT = {
   date: "",

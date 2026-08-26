@@ -1,37 +1,17 @@
--- ============================================================
--- Supprime tous les mouvements du 03/08/2026.
---
--- Vérification de sécurité incluse : si certains de ces
--- mouvements sont déjà rattachés à une facture (facture_id non
--- NULL), le script s'arrête et affiche une erreur plutôt que de
--- supprimer des mouvements facturés par erreur.
---
--- A exécuter avec : psql "$DATABASE_URL" -f delete_mouvements_03082026.sql
--- ============================================================
+-- Nettoyage ponctuel : suppression des mouvements du 04/08/2026
+-- ATTENTION : ne supprime que les mouvements NON facturés.
+-- Si des mouvements de cette date sont déjà facturés, ils seront listés
+-- par la première requête (SELECT) mais ignorés par le DELETE, pour éviter
+-- de casser une facture existante.
 
-BEGIN;
-
-DO $$
-DECLARE
-    nb_factures INTEGER;
-BEGIN
-    SELECT COUNT(*) INTO nb_factures
-    FROM mouvements
-    WHERE date = '2026-08-03' AND facture_id IS NOT NULL;
-
-    IF nb_factures > 0 THEN
-        RAISE EXCEPTION
-            '% mouvement(s) du 03/08/2026 sont déjà rattachés à une facture : suppression annulée.',
-            nb_factures;
-    END IF;
-END $$;
-
--- Aperçu de ce qui va être supprimé (visible dans la sortie psql)
-SELECT COUNT(*) AS nb_mouvements_a_supprimer
+-- 1) Vérification avant suppression : voir ce qui va être supprimé / ignoré
+SELECT id, date, heure, client_id, circuit_id, facture_id,
+       CASE WHEN facture_id IS NOT NULL THEN 'IGNORÉ (déjà facturé)' ELSE 'À SUPPRIMER' END AS action
 FROM mouvements
-WHERE date = '2026-08-03';
+WHERE date = '2026-08-04'
+ORDER BY heure;
 
+-- 2) Suppression effective (mouvements non facturés uniquement)
 DELETE FROM mouvements
-WHERE date = '2026-08-03';
-
-COMMIT;
+WHERE date = '2026-08-04'
+  AND facture_id IS NULL;
