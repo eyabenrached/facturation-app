@@ -171,6 +171,7 @@ def _generer_facture_pdf_generique(
 
 def generer_facture_pdf(facture: models.Facture) -> bytes:
     buffer = io.BytesIO()
+    mouvements_tries = sorted(facture.mouvements, key=lambda m: (m.date, m.heure))
     lignes = [
         {
             "date": m.date,
@@ -179,7 +180,7 @@ def generer_facture_pdf(facture: models.Facture) -> bytes:
             "vehicule": _label_vehicule(m.vehicule),
             "prix": float(m.prix_applique),
         }
-        for m in facture.mouvements
+        for m in mouvements_tries
     ]
     _generer_facture_pdf_generique(
         buffer,
@@ -199,6 +200,7 @@ def generer_facture_pdf(facture: models.Facture) -> bytes:
 
 def generer_facture_location_pdf(facture: "models.FactureLocation") -> bytes:
     buffer = io.BytesIO()
+    mouvements_tries = sorted(facture.mouvements, key=lambda m: (m.date, m.heure))
     lignes = [
         {
             "date": m.date,
@@ -207,7 +209,7 @@ def generer_facture_location_pdf(facture: "models.FactureLocation") -> bytes:
             "vehicule": _label_vehicule(m.vehicule),
             "prix": float(m.prix),
         }
-        for m in facture.mouvements
+        for m in mouvements_tries
     ]
     _generer_facture_pdf_generique(
         buffer,
