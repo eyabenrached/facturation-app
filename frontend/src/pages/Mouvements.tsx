@@ -139,6 +139,34 @@ export default function Mouvements() {
     setFormMvt({ ...formMvt, ...champs });
   }
 
+  // Récupère automatiquement le prix suggéré par le backend (qui tient compte
+  // de l'heure, du client, du circuit et du type de véhicule) dès que ces
+  // champs sont renseignés dans le formulaire.
+  useEffect(() => {
+    if (!modalMvtOuvert) return;
+    if (!formMvt.client_id || !formMvt.circuit_id || !formMvt.heure) return;
+
+    const params = new URLSearchParams();
+    params.set("client_id", String(formMvt.client_id));
+    params.set("circuit_id", String(formMvt.circuit_id));
+    params.set("heure", formMvt.heure);
+    if (formMvt.vehicule_id) params.set("vehicule_id", String(formMvt.vehicule_id));
+
+    let annule = false;
+    api
+      .get<{ prix_suggere: number; type_vehicule: string }>(`/mouvements/prix-suggere?${params.toString()}`)
+      .then((res) => {
+        if (!annule) setPrixSuggere(res.prix_suggere);
+      })
+      .catch(() => {
+        /* Si le calcul échoue (ex : aucun tarif défini), on laisse l'utilisateur choisir manuellement. */
+      });
+
+    return () => {
+      annule = true;
+    };
+  }, [modalMvtOuvert, formMvt.client_id, formMvt.circuit_id, formMvt.heure, formMvt.vehicule_id]);
+
   async function enregistrerMouvement() {
     setErreurMvt("");
     if (prixSuggere === null) {
@@ -290,6 +318,10 @@ export default function Mouvements() {
       </div>
 
       <RecapTransporteurs endpoint="/mouvements/recap-transporteurs" dateDu={dateDu} dateAu={dateAu} />
+
+      <p style={{ margin: "0.5rem 0", fontWeight: 600 }}>
+        {mouvements.length} mouvement{mouvements.length > 1 ? "s" : ""}
+      </p>
 
       <DataTable<Mouvement>
         rows={mouvements}
