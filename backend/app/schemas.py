@@ -256,6 +256,9 @@ class FactureGenerateRequest(BaseModel):
     date_debut: date
     date_fin: date
     numero_facture: str  # pré-rempli automatiquement côté frontend, modifiable avant validation
+    # "detaillee" (par défaut, une ligne par mouvement) ou "recap_heures"
+    # (une ligne par heure de départ, regroupement automatique).
+    type_facture: str = "detaillee"
 
 
 class FactureOut(BaseModel):
@@ -272,6 +275,7 @@ class FactureOut(BaseModel):
     statut: StatutFacture
     date_creation: datetime
     date_paiement: date | None = None
+    type_facture: str = "detaillee"
     client: ClientOut | None = None
     mouvements: list[MouvementOut] = []
 

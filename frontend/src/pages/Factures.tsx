@@ -10,12 +10,29 @@ function badgeStatut(s: StatutFacture) {
   return <span className={`badge ${s}`}>{label}</span>;
 }
 
+type TypeFacturePdf = "detaillee" | "recap_heures";
+
 /**
- * Ouvre le PDF de la facture dans un iframe invisible puis déclenche
- * directement l'impression du navigateur sur ce PDF (sans passer par un
- * nouvel onglet à fermer manuellement).
+ * Construit l'URL du PDF d'une facture en forçant le format voulu
+ * (détaillé ou récapitulatif par heure), quel que soit le type choisi
+ * lors de la génération initiale de la facture.
+ *
+ * ⚠️ Suppose que le backend accepte un paramètre de requête `type` sur
+ * l'endpoint PDF pour surcharger le format. À adapter si le nom du
+ * paramètre ou le comportement de l'API diffère.
  */
-function imprimerPdf(factureId: number) {
+function pdfUrlAvecType(factureId: number, type: TypeFacturePdf) {
+  const base = pdfUrl(factureId);
+  const separateur = base.includes("?") ? "&" : "?";
+  return `${base}${separateur}type=${type}`;
+}
+
+/**
+ * Ouvre le PDF de la facture (dans le format demandé) dans un iframe
+ * invisible puis déclenche directement l'impression du navigateur sur ce
+ * PDF (sans passer par un nouvel onglet à fermer manuellement).
+ */
+function imprimerPdf(factureId: number, type: TypeFacturePdf) {
   const iframe = document.createElement("iframe");
   iframe.style.position = "fixed";
   iframe.style.right = "0";
@@ -23,7 +40,7 @@ function imprimerPdf(factureId: number) {
   iframe.style.width = "0";
   iframe.style.height = "0";
   iframe.style.border = "0";
-  iframe.src = pdfUrl(factureId);
+  iframe.src = pdfUrlAvecType(factureId, type);
   iframe.onload = () => {
     // Laisse au visualiseur PDF du navigateur le temps de s'initialiser
     // avant de déclencher l'impression, sinon certains navigateurs
@@ -35,7 +52,7 @@ function imprimerPdf(factureId: number) {
       } catch {
         // Repli : si l'impression directe échoue (ex. restrictions du
         // navigateur), on ouvre le PDF dans un nouvel onglet à la place.
-        window.open(pdfUrl(factureId), "_blank");
+        window.open(pdfUrlAvecType(factureId, type), "_blank");
       }
     }, 300);
   };
@@ -62,6 +79,11 @@ export default function Factures() {
   const [modalFactureOuvert, setModalFactureOuvert] = useState(false);
   const [numeroFacture, setNumeroFacture] = useState("");
   const [erreurFacture, setErreurFacture] = useState("");
+
+  // Type de facture : détaillée (comportement historique, une ligne par
+  // mouvement) ou récapitulative par heure (une ligne par heure de départ,
+  // regroupement automatique — pas de saisie de prix).
+  const [typeFacture, setTypeFacture] = useState<"detaillee" | "recap_heures">("detaillee");
 
   useEffect(() => {
     api.get<Client[]>("/clients/").then(setClients);
@@ -99,6 +121,8 @@ export default function Factures() {
 
   const client = clients.find((c) => c.id === Number(filtreClient));
   const tauxTva = client?.taux_tva ?? 19;
+  // Le montant réel facturé est le même quel que soit le type de facture ;
+  // seule la mise en forme du PDF change (détail par mouvement ou résumé par heure).
   const totalHT = nonFactures.reduce((s, m) => s + Number(m.prix_applique), 0);
   const montantTva = Math.round(totalHT * tauxTva) / 100;
   const totalTTC = Math.round((totalHT + montantTva) * 1000) / 1000;
@@ -109,6 +133,7 @@ export default function Factures() {
       return;
     }
     setErreurFacture("");
+    setTypeFacture("detaillee");
     const res = await api.get<{ numero_suggere: string }>("/factures/next-numero");
     setNumeroFacture(res.numero_suggere); // auto par défaut, modifiable ci-dessous
     setModalFactureOuvert(true);
@@ -122,6 +147,7 @@ export default function Factures() {
         date_debut: dateDu,
         date_fin: dateAu,
         numero_facture: numeroFacture,
+        type_facture: typeFacture,
       });
       setModalFactureOuvert(false);
       chargerFactures();
@@ -211,14 +237,28 @@ export default function Factures() {
           { header: "N° facture", render: (f) => f.numero_facture },
           { header: "Client", render: (f) => f.client?.nom_societe || "—" },
           { header: "Période", render: (f) => `${f.date_debut} → ${f.date_fin}` },
+          {
+            header: "Type",
+            render: (f) =>
+              f.type_facture === "recap_heures" ? (
+                <span className="badge" style={{ background: "#eef2ff", color: "#4338ca" }}>Récap. par heure</span>
+              ) : (
+                <span className="badge" style={{ background: "#f1f5f9", color: "#334155" }}>Détaillée</span>
+              ),
+          },
           { header: "Total TTC", render: (f) => `${Number(f.montant_ttc).toFixed(3)} TND` },
           { header: "Statut", render: (f) => badgeStatut(f.statut) },
           {
             header: "Actions",
             render: (f) => (
               <>
-                <button className="btn-link" onClick={() => imprimerPdf(f.id)}>Imprimer</button>
-                <a className="btn-link" href={pdfUrl(f.id)} target="_blank" rel="noreferrer">PDF</a>
+                <button className="btn-link" onClick={() => imprimerPdf(f.id, "detaillee")}>Imprimer</button>
+                <a className="btn-link" href={pdfUrlAvecType(f.id, "detaillee")} target="_blank" rel="noreferrer">
+                  Détailler
+                </a>
+                <a className="btn-link" href={pdfUrlAvecType(f.id, "recap_heures")} target="_blank" rel="noreferrer">
+                  Récapitulation
+                </a>
                 {f.statut !== "payee" && (
                   <button className="btn-link" onClick={() => changerStatutFacture(f, "payee")}>Marquer payée</button>
                 )}
@@ -240,6 +280,22 @@ export default function Factures() {
             <label>Numéro de facture (généré automatiquement — modifiable si besoin)</label>
             <input value={numeroFacture} onChange={(e) => setNumeroFacture(e.target.value)} />
           </div>
+
+          <div className="form-field" style={{ marginBottom: "1rem" }}>
+            <label>Type de facture</label>
+            <select value={typeFacture} onChange={(e) => setTypeFacture(e.target.value as "detaillee" | "recap_heures")}>
+              <option value="detaillee">Détaillée (une ligne par mouvement)</option>
+              <option value="recap_heures">Récapitulative par heure (courte, groupée par heure de départ)</option>
+            </select>
+            {typeFacture === "recap_heures" && (
+              <p style={{ fontSize: "0.85rem", color: "#667085", marginTop: "0.4rem" }}>
+                Le PDF regroupera automatiquement les mouvements par heure de départ
+                (une ligne par heure : nombre de mouvements × prix). Le montant total
+                facturé reste identique à la facture détaillée.
+              </p>
+            )}
+          </div>
+
           <div className="recap-grid">
             <div className="recap-box"><div className="label">Total HT</div><div className="value">{totalHT.toFixed(3)} TND</div></div>
             <div className="recap-box"><div className="label">TVA ({tauxTva}%)</div><div className="value">{montantTva.toFixed(3)} TND</div></div>

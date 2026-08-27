@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session, joinedload
 from .. import models, schemas
 from ..database import get_db
 from ..deps import exiger_admin, exiger_utilisateur_connecte
-from ..pdf import generer_facture_pdf
+from ..pdf import generer_facture_pdf, generer_facture_recap_heures_pdf
 
 router = APIRouter(prefix="/factures", tags=["Factures"])
 
@@ -78,10 +78,15 @@ def generer_facture(payload: schemas.FactureGenerateRequest, db: Session = Depen
     if not mouvements:
         raise HTTPException(400, "Aucun mouvement non facturé trouvé pour ce client sur cette période.")
 
-    montant_ht = sum(float(m.prix_applique) for m in mouvements)
+    # Le montant facturé est toujours la somme réelle des prix appliqués aux
+    # mouvements — seul l'affichage dans le PDF change selon le type de
+    # facture (détail mouvement par mouvement, ou résumé par heure).
     taux_tva = float(client.taux_tva)
+    montant_ht = sum(float(m.prix_applique) for m in mouvements)
     montant_tva = round(montant_ht * taux_tva / 100, 3)
     montant_ttc = round(montant_ht + montant_tva, 3)
+
+    type_facture = payload.type_facture if payload.type_facture == "recap_heures" else "detaillee"
 
     facture = models.Facture(
         client_id=payload.client_id,
@@ -93,6 +98,7 @@ def generer_facture(payload: schemas.FactureGenerateRequest, db: Session = Depen
         montant_tva=montant_tva,
         montant_ttc=montant_ttc,
         statut=models.StatutFacture.impayee,
+        type_facture=type_facture,
     )
     db.add(facture)
     db.flush()  # pour obtenir facture.id avant de lier les mouvements
@@ -133,7 +139,16 @@ def changer_statut(facture_id: int, payload: schemas.FactureStatutUpdate, db: Se
 
 
 @router.get("/{facture_id}/pdf", dependencies=[Depends(exiger_admin)])
-def export_pdf(facture_id: int, db: Session = Depends(get_db)):
+def export_pdf(facture_id: int, type: str | None = None, db: Session = Depends(get_db)):
+    """
+    Génère le PDF de la facture.
+
+    Par défaut, le format utilisé est celui enregistré sur la facture
+    (`facture.type_facture`). Le paramètre de requête optionnel `type`
+    ("detaillee" ou "recap_heures") permet de forcer un format précis,
+    indépendamment du type d'origine — utilisé par les actions
+    "Détailler" / "Récapitulation" du tableau des factures.
+    """
     facture = (
         db.query(models.Facture)
         .options(
@@ -147,7 +162,16 @@ def export_pdf(facture_id: int, db: Session = Depends(get_db)):
     if not facture:
         raise HTTPException(404, "Facture introuvable.")
 
-    pdf_bytes = generer_facture_pdf(facture)
+    if type is not None and type not in ("detaillee", "recap_heures"):
+        raise HTTPException(400, "Paramètre 'type' invalide (attendu : 'detaillee' ou 'recap_heures').")
+
+    type_effectif = type if type is not None else facture.type_facture
+
+    pdf_bytes = (
+        generer_facture_recap_heures_pdf(facture)
+        if type_effectif == "recap_heures"
+        else generer_facture_pdf(facture)
+    )
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",

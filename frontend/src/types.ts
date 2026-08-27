@@ -155,6 +155,7 @@ export interface Facture {
   statut: StatutFacture;
   date_creation: string;
   date_paiement: string | null;
+  type_facture: "detaillee" | "recap_heures";
   client?: Client;
   mouvements: Mouvement[];
 }

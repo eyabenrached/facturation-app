@@ -62,10 +62,13 @@ class _CanvasNumerote(pdfcanvas.Canvas):
 
 def _generer_facture_pdf_generique(
     buffer, *, numero_facture, date_debut, date_fin, client_nom, client_responsable,
-    lignes, montant_ht, taux_tva, montant_tva, montant_ttc,
+    entete_colonnes, lignes_tableau, largeurs_colonnes, colonnes_alignees_droite,
+    montant_ht, taux_tva, montant_tva, montant_ttc,
 ):
-    """Coeur commun aux factures classiques et aux factures location : construit le
-    PDF à partir de valeurs déjà "aplaties" (pas de dépendance à un modèle précis)."""
+    """Coeur commun aux factures classiques, aux factures location et aux
+    factures récapitulatives par shift : construit le PDF à partir d'un
+    tableau déjà "aplati" (entête + lignes de texte), pas de dépendance à
+    un modèle précis."""
     page_width, page_height = A4
     logo_path = os.path.join(os.path.dirname(__file__), "static", "logo.png")
     logo_exists = os.path.exists(logo_path)
@@ -118,26 +121,21 @@ def _generer_facture_pdf_generique(
             elements.append(Paragraph(ligne, normal))
         elements.append(Spacer(1, 8 * mm))
 
-    data = [["Date", "Heure", "Circuit", "Véhicule", "Prix (TND)"]]
-    for ligne in lignes:
-        data.append([
-            ligne["date"].strftime("%d/%m/%Y"),
-            ligne["heure"].strftime("%H:%M"),
-            ligne["circuit"],
-            ligne.get("vehicule", "—"),
-            f"{ligne['prix']:.3f}",
-        ])
+    data = [entete_colonnes] + lignes_tableau
 
-    table = Table(data, colWidths=[22 * mm, 16 * mm, 62 * mm, 32 * mm, 28 * mm], repeatRows=1)
-    table.setStyle(TableStyle([
+    style_commands = [
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1F3864")),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
         ("FONTSIZE", (0, 0), (-1, -1), 9),
         ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#CCCCCC")),
         ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F2F2F2")]),
-        ("ALIGN", (4, 0), (4, -1), "RIGHT"),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-    ]))
+    ]
+    for col in colonnes_alignees_droite:
+        style_commands.append(("ALIGN", (col, 0), (col, -1), "RIGHT"))
+
+    table = Table(data, colWidths=largeurs_colonnes, repeatRows=1)
+    table.setStyle(TableStyle(style_commands))
     elements.append(table)
     elements.append(Spacer(1, 8 * mm))
 
@@ -172,14 +170,14 @@ def _generer_facture_pdf_generique(
 def generer_facture_pdf(facture: models.Facture) -> bytes:
     buffer = io.BytesIO()
     mouvements_tries = sorted(facture.mouvements, key=lambda m: (m.date, m.heure))
-    lignes = [
-        {
-            "date": m.date,
-            "heure": m.heure,
-            "circuit": f"{m.circuit.point_depart} -> {m.circuit.point_arrivee}",
-            "vehicule": _label_vehicule(m.vehicule),
-            "prix": float(m.prix_applique),
-        }
+    lignes_tableau = [
+        [
+            m.date.strftime("%d/%m/%Y"),
+            m.heure.strftime("%H:%M"),
+            f"{m.circuit.point_depart} -> {m.circuit.point_arrivee}",
+            _label_vehicule(m.vehicule),
+            f"{float(m.prix_applique):.3f}",
+        ]
         for m in mouvements_tries
     ]
     _generer_facture_pdf_generique(
@@ -189,7 +187,54 @@ def generer_facture_pdf(facture: models.Facture) -> bytes:
         date_fin=facture.date_fin,
         client_nom=facture.client.nom_societe,
         client_responsable=facture.client.responsable,
-        lignes=lignes,
+        entete_colonnes=["Date", "Heure", "Circuit", "Véhicule", "Prix (TND)"],
+        lignes_tableau=lignes_tableau,
+        largeurs_colonnes=[22 * mm, 16 * mm, 62 * mm, 32 * mm, 28 * mm],
+        colonnes_alignees_droite=[4],
+        montant_ht=float(facture.montant_ht),
+        taux_tva=float(facture.taux_tva),
+        montant_tva=float(facture.montant_tva),
+        montant_ttc=float(facture.montant_ttc),
+    )
+    return buffer.getvalue()
+
+
+def generer_facture_recap_heures_pdf(facture: models.Facture) -> bytes:
+    """Facture courte et synthétique : une ligne par heure de départ
+    (nombre de mouvements × montant réel total de cette heure) au lieu du
+    détail de chaque mouvement. Le prix unitaire affiché est le montant réel
+    facturé pour cette heure divisé par le nombre de mouvements (donc exact
+    même si le prix appliqué varie d'un mouvement à l'autre à la même heure)."""
+    buffer = io.BytesIO()
+
+    groupes: dict = {}
+    for m in facture.mouvements:
+        groupes.setdefault(m.heure, []).append(m)
+
+    lignes_tableau = []
+    for heure in sorted(groupes.keys()):
+        mvts = groupes[heure]
+        nb = len(mvts)
+        montant_total = sum(float(m.prix_applique) for m in mvts)
+        prix_unitaire = montant_total / nb
+        lignes_tableau.append([
+            heure.strftime("%H:%M"),
+            str(nb),
+            f"{prix_unitaire:.3f}",
+            f"{montant_total:.3f}",
+        ])
+
+    _generer_facture_pdf_generique(
+        buffer,
+        numero_facture=facture.numero_facture,
+        date_debut=facture.date_debut,
+        date_fin=facture.date_fin,
+        client_nom=facture.client.nom_societe,
+        client_responsable=facture.client.responsable,
+        entete_colonnes=["Heure", "Nb mouvements", "Prix unitaire (TND)", "Montant total (TND)"],
+        lignes_tableau=lignes_tableau,
+        largeurs_colonnes=[40 * mm, 42 * mm, 42 * mm, 42 * mm],
+        colonnes_alignees_droite=[1, 2, 3],
         montant_ht=float(facture.montant_ht),
         taux_tva=float(facture.taux_tva),
         montant_tva=float(facture.montant_tva),
@@ -201,14 +246,14 @@ def generer_facture_pdf(facture: models.Facture) -> bytes:
 def generer_facture_location_pdf(facture: "models.FactureLocation") -> bytes:
     buffer = io.BytesIO()
     mouvements_tries = sorted(facture.mouvements, key=lambda m: (m.date, m.heure))
-    lignes = [
-        {
-            "date": m.date,
-            "heure": m.heure,
-            "circuit": m.circuit,
-            "vehicule": _label_vehicule(m.vehicule),
-            "prix": float(m.prix),
-        }
+    lignes_tableau = [
+        [
+            m.date.strftime("%d/%m/%Y"),
+            m.heure.strftime("%H:%M"),
+            m.circuit,
+            _label_vehicule(m.vehicule),
+            f"{float(m.prix):.3f}",
+        ]
         for m in mouvements_tries
     ]
     _generer_facture_pdf_generique(
@@ -218,7 +263,10 @@ def generer_facture_location_pdf(facture: "models.FactureLocation") -> bytes:
         date_fin=facture.date_fin,
         client_nom=facture.client,
         client_responsable=None,
-        lignes=lignes,
+        entete_colonnes=["Date", "Heure", "Circuit", "Véhicule", "Prix (TND)"],
+        lignes_tableau=lignes_tableau,
+        largeurs_colonnes=[22 * mm, 16 * mm, 62 * mm, 32 * mm, 28 * mm],
+        colonnes_alignees_droite=[4],
         montant_ht=float(facture.montant_ht),
         taux_tva=float(facture.taux_tva),
         montant_tva=float(facture.montant_tva),

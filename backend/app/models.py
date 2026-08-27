@@ -237,6 +237,12 @@ class Facture(Base):
     date_creation: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     date_paiement: Mapped[date | None] = mapped_column(Date, nullable=True)
 
+    # Type de facture : "detaillee" (une ligne par mouvement, comportement
+    # historique) ou "recap_heures" (une ligne par heure de départ, avec le
+    # nombre de mouvements et le montant total réel de cette heure — calculé
+    # automatiquement à partir des mouvements liés, pas de saisie manuelle).
+    type_facture: Mapped[str] = mapped_column(String(20), default="detaillee")
+
     client: Mapped["Client"] = relationship(back_populates="factures")
     mouvements: Mapped[list["Mouvement"]] = relationship(back_populates="facture")
 
