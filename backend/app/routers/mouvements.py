@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session, joinedload
 from .. import models, schemas
 from ..database import get_db
 from ..deps import exiger_utilisateur_connecte
-from ..pricing import calculer_prix, type_vehicule_du_vehicule
+from ..pricing import apprendre_tarif_si_absent, calculer_prix, type_vehicule_du_vehicule
 from ..recap import construire_recap_transporteurs
 
 router = APIRouter(prefix="/mouvements", tags=["Mouvements"])
@@ -75,9 +75,9 @@ def creer_mouvement(payload: schemas.MouvementCreate, db: Session = Depends(get_
     if not db.query(models.Circuit).get(payload.circuit_id):
         raise HTTPException(400, "Circuit introuvable.")
 
+    type_vehicule = type_vehicule_du_vehicule(db, payload.vehicule_id)
     prix = payload.prix_applique
     if prix is None:
-        type_vehicule = type_vehicule_du_vehicule(db, payload.vehicule_id)
         prix = calculer_prix(db, payload.client_id, payload.circuit_id, payload.heure, type_vehicule)
 
     obj = models.Mouvement(
@@ -92,6 +92,9 @@ def creer_mouvement(payload: schemas.MouvementCreate, db: Session = Depends(get_
         prix_applique=prix,
     )
     db.add(obj)
+    # Apprentissage auto : si ce client + circuit n'a encore aucun tarif,
+    # le prix saisi ici devient le tarif de référence pour la prochaine fois.
+    apprendre_tarif_si_absent(db, payload.client_id, payload.circuit_id, payload.heure, type_vehicule, prix)
     db.commit()
     db.refresh(obj)
     return obj
@@ -142,9 +145,9 @@ def modifier_mouvement(mouvement_id: int, payload: schemas.MouvementCreate, db: 
     if not db.query(models.Circuit).get(payload.circuit_id):
         raise HTTPException(400, "Circuit introuvable.")
 
+    type_vehicule = type_vehicule_du_vehicule(db, payload.vehicule_id)
     prix = payload.prix_applique
     if prix is None:
-        type_vehicule = type_vehicule_du_vehicule(db, payload.vehicule_id)
         prix = calculer_prix(db, payload.client_id, payload.circuit_id, payload.heure, type_vehicule)
 
     obj.date = payload.date
@@ -157,6 +160,8 @@ def modifier_mouvement(mouvement_id: int, payload: schemas.MouvementCreate, db: 
     obj.nb_personnes = payload.nb_personnes
     obj.prix_applique = prix
 
+    # Apprentissage auto : même logique qu'à la création.
+    apprendre_tarif_si_absent(db, payload.client_id, payload.circuit_id, payload.heure, type_vehicule, prix)
     db.commit()
     db.refresh(obj)
     return obj

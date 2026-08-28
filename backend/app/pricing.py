@@ -95,3 +95,46 @@ def calculer_prix(
     base = float(circuit.prix_jour if est_heure_jour(heure) else circuit.prix_nuit)
     multiplicateur = MULTIPLICATEURS_TYPE_VEHICULE.get(type_vehicule, 1.0)
     return round(base * multiplicateur, 3)
+
+
+def apprendre_tarif_si_absent(
+    db: Session,
+    client_id: int,
+    circuit_id: int,
+    heure: time,
+    type_vehicule: "models.TypeVehicule",
+    prix: float,
+) -> "models.TarifClient | None":
+    """
+    Système d'apprentissage automatique des tarifs client.
+
+    Dès qu'un mouvement est créé (ou modifié) pour un couple client + circuit
+    qui n'a ENCORE AUCUN tarif enregistré (même approximatif), le prix saisi
+    est automatiquement mémorisé comme nouveau tarif client, précis sur
+    l'heure et le type de véhicule de ce mouvement.
+
+    Une fois ce premier tarif appris, les mouvements suivants pour ce même
+    couple client + circuit ne déclenchent plus d'apprentissage : le prix
+    est alors reconnu et généré automatiquement par calculer_prix() ci-dessus.
+    """
+    tarif_existant = (
+        db.query(models.TarifClient)
+        .filter(
+            models.TarifClient.client_id == client_id,
+            models.TarifClient.circuit_id == circuit_id,
+        )
+        .first()
+    )
+    if tarif_existant is not None:
+        return None
+
+    nouveau_tarif = models.TarifClient(
+        client_id=client_id,
+        circuit_id=circuit_id,
+        type_vehicule=type_vehicule,
+        heure_debut=heure,
+        heure_fin=heure,
+        prix=prix,
+    )
+    db.add(nouveau_tarif)
+    return nouveau_tarif
