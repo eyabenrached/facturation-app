@@ -4,6 +4,7 @@ import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Chauffeurs from "./pages/Chauffeurs";
 import Clients from "./pages/Clients";
+import FicheClient from "./pages/FicheClient";
 import Agences from "./pages/Agences";
 import Vehicules from "./pages/Vehicules";
 import Circuits from "./pages/Circuits";
@@ -96,6 +97,7 @@ function RoutesProtegees() {
           {estAdmin && <Route path="/dashboard" element={<Dashboard />} />}
           <Route path="/chauffeurs" element={<Chauffeurs />} />
           <Route path="/clients" element={<Clients />} />
+          <Route path="/clients/:id" element={<FicheClient />} />
           <Route path="/agences" element={<Agences />} />
           <Route path="/vehicules" element={<Vehicules />} />
           <Route path="/circuits" element={<Circuits />} />

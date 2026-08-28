@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { api } from "../api";
 import { Client } from "../types";
 import { DataTable } from "../components/DataTable";
@@ -90,17 +91,22 @@ export default function Clients() {
       <DataTable<Client>
         rows={liste}
         columns={[
-          { header: "Société", render: (c) => c.nom_societe },
+          { header: "Société", render: (c) => <Link to={`/clients/${c.id}`}>{c.nom_societe}</Link> },
           { header: "Responsable", render: (c) => c.responsable },
           { header: "Téléphone", render: (c) => c.telephone },
           { header: "E-mail", render: (c) => c.email },
           { header: "TVA %", render: (c) => `${c.taux_tva}%` },
           {
             header: "Actions",
-            render: (c) => estAdmin && (
+            render: (c) => (
               <>
-                <button className="btn-link" onClick={() => ouvrirEdition(c)}>Modifier</button>
-                <button className="btn-link" onClick={() => supprimer(c)}>Supprimer</button>
+                <Link className="btn-link" to={`/clients/${c.id}`}>Fiche</Link>
+                {estAdmin && (
+                  <>
+                    <button className="btn-link" onClick={() => ouvrirEdition(c)}>Modifier</button>
+                    <button className="btn-link" onClick={() => supprimer(c)}>Supprimer</button>
+                  </>
+                )}
               </>
             ),
           },

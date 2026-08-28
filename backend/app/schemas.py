@@ -293,6 +293,20 @@ class NextNumeroOut(BaseModel):
     numero_suggere: str
 
 
+# ---------- Fiche client détaillée ----------
+class ClientFicheOut(BaseModel):
+    """Vue agrégée d'un client : ses tarifs spécifiques, son historique de
+    mouvements, ses factures et son chiffre d'affaires cumulé (facturé et encaissé)."""
+    client: ClientOut
+    tarifs: list[TarifClientOut] = []
+    mouvements: list[MouvementOut] = []
+    factures: list[FactureOut] = []
+    nb_mouvements: int
+    chiffre_affaires_facture: float  # somme TTC de toutes les factures
+    chiffre_affaires_encaisse: float  # somme TTC des factures payées uniquement
+    chiffre_affaires_impaye: float  # somme TTC des factures impayées/partielles
+
+
 # ---------- Dépenses (module financier) ----------
 class DepenseBase(BaseModel):
     categorie: CategorieDepense

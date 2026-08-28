@@ -253,3 +253,15 @@ export interface EvolutionMensuelle {
   depenses: number;
   benefice: number;
 }
+
+// ---------- Fiche client détaillée ----------
+export interface ClientFiche {
+  client: Client;
+  tarifs: TarifClient[];
+  mouvements: Mouvement[];
+  factures: Facture[];
+  nb_mouvements: number;
+  chiffre_affaires_facture: number;
+  chiffre_affaires_encaisse: number;
+  chiffre_affaires_impaye: number;
+}
