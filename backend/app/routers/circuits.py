@@ -72,6 +72,21 @@ def supprimer_tarif(tarif_id: int, db: Session = Depends(get_db)):
         raise HTTPException(404, "Tarif introuvable.")
     db.delete(obj)
     db.commit()
+
+
+@router.post("/tarifs/supprimer-groupe", status_code=200, dependencies=[Depends(exiger_admin)])
+def supprimer_tarifs_groupe(payload: schemas.TarifsSuppressionGroupee, db: Session = Depends(get_db)):
+    if not payload.ids:
+        raise HTTPException(400, "Aucun tarif sélectionné.")
+    nb = (
+        db.query(models.TarifClient)
+        .filter(models.TarifClient.id.in_(payload.ids))
+        .delete(synchronize_session=False)
+    )
+    db.commit()
+    return {"supprimes": nb}
+
+
 @router.put("/tarifs/{tarif_id}", response_model=schemas.TarifClientOut, dependencies=[Depends(exiger_admin)])
 def modifier_tarif(tarif_id: int, payload: schemas.TarifClientCreate, db: Session = Depends(get_db)):
     obj = db.query(models.TarifClient).get(tarif_id)

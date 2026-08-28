@@ -148,6 +148,10 @@ class TarifClientOut(TarifClientBase):
     id: int
 
 
+class TarifsSuppressionGroupee(BaseModel):
+    ids: list[int]
+
+
 # ---------- Mouvements ----------
 class MouvementBase(BaseModel):
     date: date

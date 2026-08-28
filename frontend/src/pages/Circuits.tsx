@@ -17,8 +17,7 @@ const TYPES_VEHICULE: TypeVehicule[] = ["mini_bus", "quatre_quatre", "microbus",
 const VIDE_TARIF = {
   client_id: 0,
   type_vehicule: "" as TypeVehicule | "",
-  heure_debut: "",
-  heure_fin: "",
+  heure: "",
   prix: 0,
 };
 
@@ -47,6 +46,10 @@ export default function Circuits() {
   const [tousTarifs, setTousTarifs] = useState<TarifClient[]>([]);
   const [filtreClientTous, setFiltreClientTous] = useState<string>("");
   const [filtreCircuitTous, setFiltreCircuitTous] = useState<string>("");
+
+  // ---------- Sélection multiple pour suppression groupée ----------
+  const [selectionCircuit, setSelectionCircuit] = useState<number[]>([]);
+  const [selectionTous, setSelectionTous] = useState<number[]>([]);
 
   async function charger() {
     const data = await api.get<Circuit[]>("/circuits/");
@@ -127,6 +130,7 @@ export default function Circuits() {
     setCircuitTarifs(c);
     setFormTarif(VIDE_TARIF);
     setErreurTarif("");
+    setSelectionCircuit([]);
     setTarifs(await api.get<TarifClient[]>(`/circuits/tarifs/?circuit_id=${c.id}`));
   }
 
@@ -142,8 +146,8 @@ export default function Circuits() {
         client_id: formTarif.client_id,
         circuit_id: circuitTarifs.id,
         type_vehicule: formTarif.type_vehicule || null,
-        heure_debut: formTarif.heure_debut || null,
-        heure_fin: formTarif.heure_fin || null,
+        heure_debut: formTarif.heure || null,
+        heure_fin: formTarif.heure || null,
         prix: formTarif.prix,
       });
       setFormTarif(VIDE_TARIF);
@@ -156,6 +160,8 @@ export default function Circuits() {
   async function supprimerTarif(t: TarifClient) {
     if (!confirm("Supprimer ce tarif spécifique ?")) return;
     await api.delete(`/circuits/tarifs/${t.id}`);
+    setSelectionCircuit((sel) => sel.filter((id) => id !== t.id));
+    setSelectionTous((sel) => sel.filter((id) => id !== t.id));
     if (circuitTarifs) {
       setTarifs(await api.get<TarifClient[]>(`/circuits/tarifs/?circuit_id=${circuitTarifs.id}`));
     }
@@ -164,13 +170,46 @@ export default function Circuits() {
     }
   }
 
+  function toggleSelectionCircuit(id: number) {
+    setSelectionCircuit((sel) => (sel.includes(id) ? sel.filter((x) => x !== id) : [...sel, id]));
+  }
+
+  function toggleToutCircuit() {
+    setSelectionCircuit((sel) => (sel.length === tarifs.length ? [] : tarifs.map((t) => t.id)));
+  }
+
+  async function supprimerSelectionCircuit() {
+    if (selectionCircuit.length === 0) return;
+    if (!confirm(`Supprimer les ${selectionCircuit.length} tarif(s) sélectionné(s) ?`)) return;
+    await api.post("/circuits/tarifs/supprimer-groupe", { ids: selectionCircuit });
+    setSelectionCircuit([]);
+    if (circuitTarifs) {
+      setTarifs(await api.get<TarifClient[]>(`/circuits/tarifs/?circuit_id=${circuitTarifs.id}`));
+    }
+  }
+
+  function toggleSelectionTous(id: number) {
+    setSelectionTous((sel) => (sel.includes(id) ? sel.filter((x) => x !== id) : [...sel, id]));
+  }
+
+  function toggleToutTous() {
+    setSelectionTous((sel) => (sel.length === tousTarifs.length ? [] : tousTarifs.map((t) => t.id)));
+  }
+
+  async function supprimerSelectionTous() {
+    if (selectionTous.length === 0) return;
+    if (!confirm(`Supprimer les ${selectionTous.length} tarif(s) sélectionné(s) ?`)) return;
+    await api.post("/circuits/tarifs/supprimer-groupe", { ids: selectionTous });
+    setSelectionTous([]);
+    chargerTousTarifs();
+  }
+
   function ouvrirEditionTarif(t: TarifClient) {
     setTarifEnEdition(t);
     setFormTarif({
       client_id: t.client_id,
       type_vehicule: t.type_vehicule || "",
-      heure_debut: t.heure_debut || "",
-      heure_fin: t.heure_fin || "",
+      heure: t.heure_debut || "",
       prix: t.prix,
     });
     setErreurTarif("");
@@ -189,8 +228,8 @@ export default function Circuits() {
         client_id: formTarif.client_id,
         circuit_id: tarifEnEdition.circuit_id,
         type_vehicule: formTarif.type_vehicule || null,
-        heure_debut: formTarif.heure_debut || null,
-        heure_fin: formTarif.heure_fin || null,
+        heure_debut: formTarif.heure || null,
+        heure_fin: formTarif.heure || null,
         prix: formTarif.prix,
       });
       setModalTarifOuvert(false);
@@ -218,6 +257,7 @@ export default function Circuits() {
   async function ouvrirListeTarifs() {
     if (!estAdmin) return;
     setModalTousOuvert(true);
+    setSelectionTous([]);
     await chargerTousTarifs();
   }
 
@@ -332,25 +372,51 @@ export default function Circuits() {
 
           {erreurTarif && <p className="error-msg">{erreurTarif}</p>}
 
+          {estAdmin && selectionCircuit.length > 0 && (
+            <div className="form-actions" style={{ justifyContent: "flex-start", marginBottom: "0.6rem" }}>
+              <button className="btn secondary" onClick={supprimerSelectionCircuit}>
+                Supprimer la sélection ({selectionCircuit.length})
+              </button>
+            </div>
+          )}
+
           <table className="data-table" style={{ marginBottom: "1rem" }}>
             <thead>
               <tr>
+                {estAdmin && (
+                  <th>
+                    <input
+                      type="checkbox"
+                      checked={tarifs.length > 0 && selectionCircuit.length === tarifs.length}
+                      onChange={toggleToutCircuit}
+                    />
+                  </th>
+                )}
                 <th>Client</th>
                 <th>Type véhicule</th>
-                <th>Créneau horaire</th>
+                <th>Heure</th>
                 <th>Prix</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
               {tarifs.length === 0 ? (
-                <tr><td colSpan={5} className="empty-cell">Aucun tarif spécifique pour ce circuit.</td></tr>
+                <tr><td colSpan={estAdmin ? 6 : 5} className="empty-cell">Aucun tarif spécifique pour ce circuit.</td></tr>
               ) : (
                 tarifs.map((t) => (
                   <tr key={t.id}>
+                    {estAdmin && (
+                      <td>
+                        <input
+                          type="checkbox"
+                          checked={selectionCircuit.includes(t.id)}
+                          onChange={() => toggleSelectionCircuit(t.id)}
+                        />
+                      </td>
+                    )}
                     <td>{nomClient(t.client_id)}</td>
                     <td>{t.type_vehicule ? LABELS_TYPE_VEHICULE[t.type_vehicule] : "Tous types"}</td>
-                    <td>{t.heure_debut && t.heure_fin ? `${t.heure_debut} – ${t.heure_fin}` : "Toute heure"}</td>
+                    <td>{t.heure_debut ? t.heure_debut : "Toute heure"}</td>
                     <td>{t.prix} TND</td>
                     <td>
                       {estAdmin && (
@@ -404,24 +470,16 @@ export default function Circuits() {
                   />
                 </div>
                 <div className="form-field">
-                  <label>Heure début (optionnel)</label>
+                  <label>Heure (optionnel)</label>
                   <input
                     type="time"
-                    value={formTarif.heure_debut}
-                    onChange={(e) => setFormTarif({ ...formTarif, heure_debut: e.target.value })}
-                  />
-                </div>
-                <div className="form-field">
-                  <label>Heure fin (optionnel)</label>
-                  <input
-                    type="time"
-                    value={formTarif.heure_fin}
-                    onChange={(e) => setFormTarif({ ...formTarif, heure_fin: e.target.value })}
+                    value={formTarif.heure}
+                    onChange={(e) => setFormTarif({ ...formTarif, heure: e.target.value })}
                   />
                 </div>
               </div>
               <p style={{ fontSize: "0.78rem", color: "#6b7280" }}>
-                Laissez les heures vides pour un tarif valable à toute heure pour ce client.
+                Laissez l'heure vide pour un tarif valable à toute heure pour ce client.
               </p>
             </>
           )}
@@ -483,24 +541,16 @@ export default function Circuits() {
               />
             </div>
             <div className="form-field">
-              <label>Heure début (optionnel)</label>
+              <label>Heure (optionnel)</label>
               <input
                 type="time"
-                value={formTarif.heure_debut}
-                onChange={(e) => setFormTarif({ ...formTarif, heure_debut: e.target.value })}
-              />
-            </div>
-            <div className="form-field">
-              <label>Heure fin (optionnel)</label>
-              <input
-                type="time"
-                value={formTarif.heure_fin}
-                onChange={(e) => setFormTarif({ ...formTarif, heure_fin: e.target.value })}
+                value={formTarif.heure}
+                onChange={(e) => setFormTarif({ ...formTarif, heure: e.target.value })}
               />
             </div>
           </div>
           <p style={{ fontSize: "0.78rem", color: "#6b7280", marginTop: "0.5rem" }}>
-            Laissez les heures vides pour un tarif valable à toute heure pour ce client.
+            Laissez l'heure vide pour un tarif valable à toute heure pour ce client.
           </p>
 
           <div className="form-actions">
@@ -543,27 +593,53 @@ export default function Circuits() {
             </div>
           </div>
 
+          {estAdmin && selectionTous.length > 0 && (
+            <div className="form-actions" style={{ justifyContent: "flex-start", marginBottom: "0.6rem" }}>
+              <button className="btn secondary" onClick={supprimerSelectionTous}>
+                Supprimer la sélection ({selectionTous.length})
+              </button>
+            </div>
+          )}
+
           <table className="data-table" style={{ marginBottom: "1rem" }}>
             <thead>
               <tr>
+                {estAdmin && (
+                  <th>
+                    <input
+                      type="checkbox"
+                      checked={tousTarifs.length > 0 && selectionTous.length === tousTarifs.length}
+                      onChange={toggleToutTous}
+                    />
+                  </th>
+                )}
                 <th>Client</th>
                 <th>Circuit</th>
                 <th>Type véhicule</th>
-                <th>Créneau horaire</th>
+                <th>Heure</th>
                 <th>Prix</th>
                 {estAdmin && <th></th>}
               </tr>
             </thead>
             <tbody>
               {tousTarifs.length === 0 ? (
-                <tr><td colSpan={estAdmin ? 6 : 5} className="empty-cell">Aucun tarif spécifique trouvé.</td></tr>
+                <tr><td colSpan={estAdmin ? 7 : 5} className="empty-cell">Aucun tarif spécifique trouvé.</td></tr>
               ) : (
                 tousTarifs.map((t) => (
                   <tr key={t.id}>
+                    {estAdmin && (
+                      <td>
+                        <input
+                          type="checkbox"
+                          checked={selectionTous.includes(t.id)}
+                          onChange={() => toggleSelectionTous(t.id)}
+                        />
+                      </td>
+                    )}
                     <td>{nomClient(t.client_id)}</td>
                     <td>{circuitLabel(t.circuit_id)}</td>
                     <td>{t.type_vehicule ? LABELS_TYPE_VEHICULE[t.type_vehicule] : "Tous types"}</td>
-                    <td>{t.heure_debut && t.heure_fin ? `${t.heure_debut} – ${t.heure_fin}` : "Toute heure"}</td>
+                    <td>{t.heure_debut ? t.heure_debut : "Toute heure"}</td>
                     <td>{t.prix} TND</td>
                     {estAdmin && (
                       <td>
