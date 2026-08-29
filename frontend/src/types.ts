@@ -71,6 +71,7 @@ export interface TarifClient {
   heure_debut: string | null;
   heure_fin: string | null;
   prix: number;
+  circuit?: Circuit | null;
 }
 
 export interface Mouvement {
@@ -264,4 +265,9 @@ export interface ClientFiche {
   chiffre_affaires_facture: number;
   chiffre_affaires_encaisse: number;
   chiffre_affaires_impaye: number;
+}
+
+// ---------- Paramètres de l'application ----------
+export interface Parametres {
+  duplication_mouvements_active: boolean;
 }

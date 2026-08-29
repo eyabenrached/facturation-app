@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from .. import models, schemas
 from ..database import get_db
@@ -63,6 +63,7 @@ def fiche_client(client_id: int, db: Session = Depends(get_db)):
 
     tarifs = (
         db.query(models.TarifClient)
+        .options(joinedload(models.TarifClient.circuit))
         .filter(models.TarifClient.client_id == client_id)
         .all()
     )

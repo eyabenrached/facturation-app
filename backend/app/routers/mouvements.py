@@ -115,6 +115,11 @@ def dupliquer_groupe(payload: schemas.MouvementsDupliquerGroupeIn, db: Session =
 
     nouveaux = []
     for obj in objs:
+        type_vehicule = type_vehicule_du_vehicule(db, obj.vehicule_id)
+        # Le prix est récupéré depuis le tarif client reconnu au moment de la
+        # duplication (et non recopié tel quel depuis le mouvement d'origine) :
+        # si un tarif a changé entre-temps, la copie reflète le tarif à jour.
+        prix = calculer_prix(db, obj.client_id, obj.circuit_id, obj.heure, type_vehicule)
         nouveaux.append(models.Mouvement(
             date=payload.nouvelle_date,
             heure=obj.heure,
@@ -124,7 +129,7 @@ def dupliquer_groupe(payload: schemas.MouvementsDupliquerGroupeIn, db: Session =
             vehicule_id=obj.vehicule_id,
             transporteur_id=obj.transporteur_id,
             nb_personnes=obj.nb_personnes,
-            prix_applique=obj.prix_applique,
+            prix_applique=prix,
         ))
     db.add_all(nouveaux)
     db.commit()

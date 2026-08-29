@@ -87,6 +87,7 @@ export default function FicheClient() {
         rows={tarifs}
         emptyMessage="Aucun tarif spécifique pour ce client."
         columns={[
+          { header: "Circuit", render: (t) => (t.circuit ? `${t.circuit.point_depart} → ${t.circuit.point_arrivee}` : "—") },
           { header: "Type véhicule", render: (t) => (t.type_vehicule ? LABELS_TYPE_VEHICULE[t.type_vehicule] : "Tous types") },
           { header: "Heure", render: (t) => (t.heure_debut ? t.heure_debut : "Toute heure") },
           { header: "Prix", render: (t) => formatMontant(t.prix) },

@@ -146,6 +146,7 @@ class TarifClientCreate(TarifClientBase):
 class TarifClientOut(TarifClientBase):
     model_config = ConfigDict(from_attributes=True)
     id: int
+    circuit: CircuitOut | None = None
 
 
 class TarifsSuppressionGroupee(BaseModel):
@@ -291,6 +292,16 @@ class FactureStatutUpdate(BaseModel):
 
 class NextNumeroOut(BaseModel):
     numero_suggere: str
+
+
+# ---------- Paramètres de l'application (réglages admin) ----------
+class ParametresOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    duplication_mouvements_active: bool
+
+
+class ParametresUpdate(BaseModel):
+    duplication_mouvements_active: bool
 
 
 # ---------- Fiche client détaillée ----------
