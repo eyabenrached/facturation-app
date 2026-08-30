@@ -425,7 +425,7 @@ def _signature_area(styles):
 
 def _build_invoice_pdf(facture: models.Facture, *, recap: bool) -> bytes:
     buffer = io.BytesIO()
-    logo_path = os.path.join(os.path.dirname(__file__), "static", "logo_invoice.png")
+    logo_path = os.path.join(os.path.dirname(__file__), "static", "logo.png")
 
     doc = SimpleDocTemplate(
         buffer,
