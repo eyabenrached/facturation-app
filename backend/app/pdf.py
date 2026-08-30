@@ -205,65 +205,110 @@ def _badge_title(text: str, styles):
         ("BOTTOMPADDING", (0, 0), (-1, -1), 1.6 * mm),
     ]))
 
-
 def _client_info(facture, styles):
     client = facture.client
+
     responsible = _safe(getattr(client, "responsable", None))
-    phone = _safe(getattr(client, "telephone", None))
-    email = _safe(getattr(client, "email", None))
+
+    # Informations client
     rows_left = [
-        [Paragraph("Nom du client", styles["info_label"]), Paragraph(f":  {_safe(client.nom_societe)}", styles["info_value"])],
-        [Paragraph("Responsable", styles["info_label"]), Paragraph(f":  {responsible}", styles["info_value"])],
-        [Paragraph("Téléphone", styles["info_label"]), Paragraph(f":  {phone}", styles["info_value"])],
-        [Paragraph("Email", styles["info_label"]), Paragraph(f":  {email}", styles["info_value"])],
+        [
+            Paragraph("Nom du client", styles["info_label"]),
+            Paragraph(
+                f":  {_safe(client.nom_societe)}",
+                styles["info_value"]
+            ),
+        ],
+        [
+            Paragraph("Responsable", styles["info_label"]),
+            Paragraph(
+                f":  {responsible}",
+                styles["info_value"]
+            ),
+        ],
     ]
-    vehicles = []
-    drivers = set()
-    for m in facture.mouvements:
-        label = _label_vehicule(m.vehicule)
-        if label != "—" and label not in vehicles:
-            vehicles.append(label)
-        if m.chauffeur_id is not None:
-            drivers.add(m.chauffeur_id)
 
-    period = f"{_fmt_date(facture.date_debut)}  →  {_fmt_date(facture.date_fin)}"
-    service = _env("INVOICE_SERVICE_LABEL", "Transport de personnel")
-    vehicle_text = ", ".join(vehicles) if vehicles else "—"
+    # Informations facture
+    period = (
+        f"{_fmt_date(facture.date_debut)}  →  "
+        f"{_fmt_date(facture.date_fin)}"
+    )
+
+    service = _env(
+        "INVOICE_SERVICE_LABEL",
+        "Transport de personnel"
+    )
+
     rows_right = [
-        [Paragraph("Période", styles["info_label"]), Paragraph(f":  {period}", styles["info_value"])],
-        [Paragraph("Service", styles["info_label"]), Paragraph(f":  {service}", styles["info_value"])],
-        [Paragraph("Véhicule(s)", styles["info_label"]), Paragraph(f":  {vehicle_text}", styles["info_value"])],
-        [Paragraph("Chauffeur(s)", styles["info_label"]), Paragraph(f":  {len(drivers) if drivers else 0}", styles["info_value"])],
+        [
+            Paragraph("Période", styles["info_label"]),
+            Paragraph(
+                f":  {period}",
+                styles["info_value"]
+            ),
+        ],
+        [
+            Paragraph("Service", styles["info_label"]),
+            Paragraph(
+                f":  {service}",
+                styles["info_value"]
+            ),
+        ],
     ]
 
-    left = Table(rows_left, colWidths=[30 * mm, 53 * mm])
-    right = Table(rows_right, colWidths=[30 * mm, 53 * mm])
+    left = Table(
+        rows_left,
+        colWidths=[30 * mm, 53 * mm]
+    )
+
+    right = Table(
+        rows_right,
+        colWidths=[30 * mm, 53 * mm]
+    )
+
     for t in (left, right):
         t.setStyle(TableStyle([
             ("VALIGN", (0, 0), (-1, -1), "TOP"),
+
             ("LEFTPADDING", (0, 0), (-1, -1), 0),
             ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+
             ("TOPPADDING", (0, 0), (-1, -1), 1.1 * mm),
             ("BOTTOMPADDING", (0, 0), (-1, -1), 1.1 * mm),
         ]))
 
-    block = Table([
-        [_badge_title("Facturé à", styles), _badge_title("Informations", styles)],
-        [left, right],
-    ], colWidths=[84 * mm, 84 * mm])
+    block = Table(
+        [
+            [
+                _badge_title("Facturé à", styles),
+                _badge_title("Informations", styles)
+            ],
+            [
+                left,
+                right
+            ],
+        ],
+        colWidths=[84 * mm, 84 * mm]
+    )
+
     block.setStyle(TableStyle([
         ("BOX", (0, 0), (-1, -1), 0.8, LINE),
+
         ("LINEBEFORE", (1, 0), (1, -1), 0.8, LINE),
+
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
+
         ("LEFTPADDING", (0, 0), (-1, -1), 4 * mm),
         ("RIGHTPADDING", (0, 0), (-1, -1), 4 * mm),
+
         ("TOPPADDING", (0, 0), (-1, 0), 3 * mm),
         ("BOTTOMPADDING", (0, 0), (-1, 0), 1.5 * mm),
+
         ("TOPPADDING", (0, 1), (-1, 1), 2 * mm),
         ("BOTTOMPADDING", (0, 1), (-1, 1), 2.5 * mm),
     ]))
-    return block
 
+    return block
 
 def _detail_rows(facture, styles):
     mouvements = sorted(facture.mouvements, key=lambda m: (m.date, m.heure))
