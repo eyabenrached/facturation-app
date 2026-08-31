@@ -63,6 +63,8 @@ class ClientBase(BaseModel):
     responsable: str
     telephone: str
     email: EmailStr
+    adresse: str | None = None
+    matricule_fiscal: str | None = None
     taux_tva: float = 19
     remise: float = 0
 

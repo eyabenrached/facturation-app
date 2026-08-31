@@ -166,7 +166,7 @@ export default function Factures() {
   }
 
   async function supprimerFacture(f: Facture) {
-    if (!confirm(`Supprimer la facture ${f.numero_facture} ? Les mouvements liés redeviendront non facturés.`)) return;
+    if (!confirm(`Supprimer la facture ${f.numero_facture} ? Les navettes liées redeviendront non facturées.`)) return;
     try {
       await api.delete(`/factures/${f.id}`);
       chargerFactures();
@@ -225,7 +225,7 @@ export default function Factures() {
           </div>
           <div className="form-actions">
             <button className="btn" disabled={nonFactures.length === 0} onClick={ouvrirGenerationFacture}>
-              Générer la facture ({nonFactures.length} mouvement(s) non facturé(s))
+              Générer la facture ({nonFactures.length} navette(s) non facturée(s))
             </button>
           </div>
         </div>
@@ -284,13 +284,13 @@ export default function Factures() {
           <div className="form-field" style={{ marginBottom: "1rem" }}>
             <label>Type de facture</label>
             <select value={typeFacture} onChange={(e) => setTypeFacture(e.target.value as "detaillee" | "recap_heures")}>
-              <option value="detaillee">Détaillée (une ligne par mouvement)</option>
+              <option value="detaillee">Détaillée (une ligne par navette)</option>
               <option value="recap_heures">Récapitulative par heure (courte, groupée par heure de départ)</option>
             </select>
             {typeFacture === "recap_heures" && (
               <p style={{ fontSize: "0.85rem", color: "#667085", marginTop: "0.4rem" }}>
-                Le PDF regroupera automatiquement les mouvements par heure de départ
-                (une ligne par heure : nombre de mouvements × prix). Le montant total
+                Le PDF regroupera automatiquement les navettes par heure de départ
+                (une ligne par heure : nombre de navettes × prix). Le montant total
                 facturé reste identique à la facture détaillée.
               </p>
             )}

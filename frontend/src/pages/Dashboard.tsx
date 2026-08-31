@@ -139,7 +139,7 @@ export default function Dashboard() {
           <div className="card" style={{ marginTop: "1.5rem" }}>
             <h3 style={{ marginTop: 0, color: "#1f3864" }}>Chiffre d'affaires combiné par jour</h3>
             <p style={{ marginTop: "-0.5rem", color: "var(--muted)", fontSize: "0.8rem" }}>
-              Mouvements &amp; Facturation (<span style={{ color: "#c0791b", fontWeight: 600 }}>orange</span>) + Mouvements Location (<span style={{ color: "#1f8a70", fontWeight: 600 }}>vert</span>) empilés.
+              Navettes &amp; Facturation (<span style={{ color: "#c0791b", fontWeight: 600 }}>orange</span>) + Mouvements Location (<span style={{ color: "#1f8a70", fontWeight: 600 }}>vert</span>) empilés.
             </p>
             <div style={{ display: "flex", alignItems: "flex-end", gap: "3px", height: "160px", overflowX: "auto" }}>
               {joursCombines.map((j) => {
@@ -185,7 +185,7 @@ export default function Dashboard() {
               <div className="value">{data.chiffre_affaires.toFixed(3)} TND</div>
             </div>
             <div className="recap-box">
-              <div className="label">Mouvements réalisés</div>
+              <div className="label">Navettes réalisées</div>
               <div className="value">{data.nb_mouvements}</div>
             </div>
             <div className="recap-box">
@@ -200,7 +200,7 @@ export default function Dashboard() {
 
           {data.nb_mouvements_non_factures > 0 && (
             <p style={{ color: "var(--muted)", marginTop: "0.5rem" }}>
-              ⚠️ {data.nb_mouvements_non_factures} mouvement(s) de ce mois ne sont pas encore facturés.
+              ⚠️ {data.nb_mouvements_non_factures} navette(s) de ce mois ne sont pas encore facturées.
             </p>
           )}
 
@@ -232,10 +232,10 @@ export default function Dashboard() {
 
           <div className="card" style={{ marginTop: "1.5rem" }}>
             <h3 style={{ marginTop: 0, color: "#1f3864" }}>Chiffre d'affaires par client</h3>
-            {data.par_client.length === 0 && <p>Aucun mouvement ce mois-ci.</p>}
+            {data.par_client.length === 0 && <p>Aucune navette ce mois-ci.</p>}
             {data.par_client.map((c) => (
               <div key={c.client_id} style={{ display: "flex", justifyContent: "space-between", padding: "0.5rem 0", borderBottom: "1px solid var(--line)" }}>
-                <span>{c.nom_client} <span style={{ color: "var(--muted)", fontSize: "0.8rem" }}>({c.nb} mouvement{c.nb > 1 ? "s" : ""})</span></span>
+                <span>{c.nom_client} <span style={{ color: "var(--muted)", fontSize: "0.8rem" }}>({c.nb} navette{c.nb > 1 ? "s" : ""})</span></span>
                 <strong>{c.total.toFixed(3)} TND</strong>
               </div>
             ))}
@@ -244,12 +244,12 @@ export default function Dashboard() {
           <div className="card" style={{ marginTop: "1.5rem" }}>
             <h3 style={{ marginTop: 0, color: "#1f3864" }}>Chiffre d'affaires par transporteur</h3>
             <p style={{ marginTop: "-0.5rem", color: "var(--muted)", fontSize: "0.8rem" }}>
-              Mouvements &amp; Facturation + Mouvements Location cumulés.
+              Navettes &amp; Facturation + Mouvements Location cumulés.
             </p>
-            {data.par_transporteur.length === 0 && <p>Aucun mouvement avec transporteur choisi ce mois-ci.</p>}
+            {data.par_transporteur.length === 0 && <p>Aucune navette avec transporteur choisi ce mois-ci.</p>}
             {data.par_transporteur.map((t) => (
               <div key={t.transporteur_id} style={{ display: "flex", justifyContent: "space-between", padding: "0.5rem 0", borderBottom: "1px solid var(--line)" }}>
-                <span>{t.nom_transporteur} <span style={{ color: "var(--muted)", fontSize: "0.8rem" }}>({t.nb} mouvement{t.nb > 1 ? "s" : ""})</span></span>
+                <span>{t.nom_transporteur} <span style={{ color: "var(--muted)", fontSize: "0.8rem" }}>({t.nb} navette{t.nb > 1 ? "s" : ""})</span></span>
                 <strong>{t.total.toFixed(3)} TND</strong>
               </div>
             ))}

@@ -76,6 +76,8 @@ class Client(Base):
     responsable: Mapped[str] = mapped_column(String(100))
     telephone: Mapped[str] = mapped_column(String(30))
     email: Mapped[str] = mapped_column(String(150))
+    adresse: Mapped[str | None] = mapped_column(String(255), default=None, nullable=True)
+    matricule_fiscal: Mapped[str | None] = mapped_column(String(50), default=None, nullable=True)
     taux_tva: Mapped[float] = mapped_column(Numeric(5, 2), default=19)
     remise: Mapped[float] = mapped_column(Numeric(5, 2), default=0)
 

@@ -64,7 +64,7 @@ export default function FicheClient() {
           </p>
         </div>
         <div className="card" style={{ flex: "1 1 160px", minWidth: "160px" }}>
-          <p style={{ margin: 0, fontSize: "0.8rem", color: "#6b7280" }}>Nombre de mouvements</p>
+          <p style={{ margin: 0, fontSize: "0.8rem", color: "#6b7280" }}>Nombre de navettes</p>
           <p style={{ margin: "0.2rem 0 0", fontSize: "1.4rem", fontWeight: 700 }}>{fiche.nb_mouvements}</p>
         </div>
         <div className="card" style={{ flex: "1 1 200px", minWidth: "200px" }}>
@@ -116,10 +116,10 @@ export default function FicheClient() {
       />
 
       {/* ---------- Historique des mouvements ---------- */}
-      <h3 style={{ marginTop: "2rem" }}>Historique des mouvements</h3>
+      <h3 style={{ marginTop: "2rem" }}>Historique des navettes</h3>
       <DataTable
         rows={mouvements}
-        emptyMessage="Aucun mouvement pour ce client."
+        emptyMessage="Aucune navette pour ce client."
         columns={[
           { header: "Date", render: (m) => m.date },
           { header: "Heure", render: (m) => m.heure },

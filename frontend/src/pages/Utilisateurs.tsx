@@ -125,7 +125,7 @@ export default function Utilisateurs() {
           <div className="form-field" style={{ marginBottom: "0.9rem" }}>
             <label>Rôle</label>
             <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as Role })}>
-              <option value="gestionnaire">Gestionnaire (mouvements &amp; facturation)</option>
+              <option value="gestionnaire">Gestionnaire (navettes &amp; facturation)</option>
               <option value="administrateur">Administrateur (accès complet)</option>
             </select>
           </div>

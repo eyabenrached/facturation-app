@@ -11,6 +11,8 @@ const VIDE: Omit<Client, "id"> = {
   responsable: "",
   telephone: "",
   email: "",
+  adresse: "",
+  matricule_fiscal: "",
   taux_tva: 19,
   remise: 0,
 };
@@ -132,6 +134,14 @@ export default function Clients() {
             <div className="form-field">
               <label>Adresse e-mail</label>
               <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+            </div>
+            <div className="form-field">
+              <label>Adresse</label>
+              <input value={form.adresse ?? ""} onChange={(e) => setForm({ ...form, adresse: e.target.value })} placeholder="Ex : 45, Rue de la République, 1002 Tunis" />
+            </div>
+            <div className="form-field">
+              <label>Matricule fiscal</label>
+              <input value={form.matricule_fiscal ?? ""} onChange={(e) => setForm({ ...form, matricule_fiscal: e.target.value })} placeholder="Ex : 9876543/A/M/000" />
             </div>
             <div className="form-field">
               <label>Taux TVA (%)</label>

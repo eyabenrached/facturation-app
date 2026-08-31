@@ -44,7 +44,7 @@ function Sidebar() {
           </NavLink>
         ))}
         <NavLink to="/mouvements" className={({ isActive }) => (isActive ? "active" : "")}>
-          Mouvements
+          Navettes
         </NavLink>
         {estAdmin && (
           <NavLink to="/factures" className={({ isActive }) => (isActive ? "active" : "")}>

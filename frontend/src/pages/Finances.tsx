@@ -147,7 +147,7 @@ export default function Finances() {
               </div>
             </div>
             <div className="recap-box">
-              <div className="label">Nombre de mouvements</div>
+              <div className="label">Nombre de navettes</div>
               <div className="value">{resume.nb_mouvements}</div>
             </div>
           </div>
@@ -217,7 +217,7 @@ export default function Finances() {
               rows={resume.benefice_par_client}
               columns={[
                 { header: "Client", render: (c) => c.nom_client },
-                { header: "Mouvements", render: (c) => c.nb_mouvements },
+                { header: "Navettes", render: (c) => c.nb_mouvements },
                 { header: "Revenu", render: (c) => `${c.revenu.toFixed(3)} TND` },
                 { header: "Charges réparties", render: (c) => `${c.depenses_allouees.toFixed(3)} TND` },
                 {
@@ -243,7 +243,7 @@ export default function Finances() {
               rows={resume.benefice_par_vehicule}
               columns={[
                 { header: "Véhicule", render: (v) => v.matricule },
-                { header: "Mouvements", render: (v) => v.nb_mouvements },
+                { header: "Navettes", render: (v) => v.nb_mouvements },
                 { header: "Revenu", render: (v) => `${v.revenu.toFixed(3)} TND` },
                 { header: "Dépenses", render: (v) => `${v.depenses.toFixed(3)} TND` },
                 {
@@ -261,7 +261,7 @@ export default function Finances() {
           {/* ---------- Détail par mouvement (à la demande) ---------- */}
           <div className="card" style={{ marginTop: "1.5rem" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.6rem" }}>
-              <h3 style={{ margin: 0, color: "#1f3864" }}>Bénéfice par mouvement</h3>
+              <h3 style={{ margin: 0, color: "#1f3864" }}>Bénéfice par navette</h3>
               <button className="btn secondary" onClick={() => setDetailOuvert((o) => !o)}>
                 {detailOuvert ? "Masquer le détail" : "Afficher le détail"}
               </button>
@@ -269,7 +269,7 @@ export default function Finances() {
             {detailOuvert && (
               <>
                 <p style={{ color: "var(--muted)", fontSize: "0.8rem" }}>
-                  Le revenu est exact ; le coût est une estimation obtenue en répartissant les dépenses du véhicule sur ses mouvements de la période.
+                  Le revenu est exact ; le coût est une estimation obtenue en répartissant les dépenses du véhicule sur ses navettes de la période.
                 </p>
                 <div className="form-field" style={{ maxWidth: "260px", marginBottom: "0.75rem" }}>
                   <label>Filtrer par véhicule</label>

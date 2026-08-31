@@ -14,6 +14,8 @@ export interface Client {
   responsable: string;
   telephone: string;
   email: string;
+  adresse?: string | null;
+  matricule_fiscal?: string | null;
   taux_tva: number;
   remise: number;
 }
