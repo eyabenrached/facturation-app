@@ -187,7 +187,7 @@ export default function Mouvements() {
   }
 
   async function supprimerMouvement(m: Mouvement) {
-    if (!confirm("Supprimer cette navette ?")) return;
+    if (!confirm("Supprimer ce mouvement ?")) return;
     try {
       await api.delete(`/mouvements/${m.id}`);
       chargerMouvements();
@@ -253,7 +253,7 @@ export default function Mouvements() {
   return (
     <div>
       <div className="page-header">
-        <h2>Navettes</h2>
+        <h2>Mouvements</h2>
         <div style={{ display: "flex", gap: "0.5rem" }}>
           {modeSelection && selectionnes.size > 0 && (
             <button className="btn" onClick={ouvrirModalDateGroupe}>
@@ -261,9 +261,9 @@ export default function Mouvements() {
             </button>
           )}
           <button className="btn secondary" onClick={basculerModeSelection}>
-            {modeSelection ? "Annuler la sélection" : "Sélectionner des navettes à refaire"}
+            {modeSelection ? "Annuler la sélection" : "Sélectionner des mouvements à refaire"}
           </button>
-          <button className="btn" onClick={ouvrirAjoutMouvement}>+ Ajouter une navette</button>
+          <button className="btn" onClick={ouvrirAjoutMouvement}>+ Ajouter un mouvement</button>
         </div>
       </div>
 
@@ -320,7 +320,7 @@ export default function Mouvements() {
       <RecapTransporteurs endpoint="/mouvements/recap-transporteurs" dateDu={dateDu} dateAu={dateAu} />
 
       <p style={{ margin: "0.5rem 0", fontWeight: 600 }}>
-        {mouvements.length} navette{mouvements.length > 1 ? "s" : ""}
+        {mouvements.length} mouvement{mouvements.length > 1 ? "s" : ""}
       </p>
 
       <DataTable<Mouvement>
@@ -376,7 +376,7 @@ export default function Mouvements() {
 
       {/* Modal : ajout d'un mouvement */}
       {modalMvtOuvert && (
-        <Modal title={mouvementEnEdition ? "Modifier la navette" : "Nouvelle navette"} onClose={() => setModalMvtOuvert(false)}>
+        <Modal title={mouvementEnEdition ? "Modifier le mouvement" : "Nouveau mouvement"} onClose={() => setModalMvtOuvert(false)}>
           {erreurMvt && <p className="error-msg">{erreurMvt}</p>}
           <div className="form-grid">
             <div className="form-field">
@@ -461,12 +461,12 @@ export default function Mouvements() {
       {/* Modal : duplication groupée à une nouvelle date (mouvements à refaire) */}
       {modalDateGroupeOuvert && (
         <Modal
-          title={`Dupliquer ${selectionnes.size} navette${selectionnes.size > 1 ? "s" : ""} à une nouvelle date`}
+          title={`Dupliquer ${selectionnes.size} mouvement${selectionnes.size > 1 ? "s" : ""} à une nouvelle date`}
           onClose={() => setModalDateGroupeOuvert(false)}
         >
           {erreurDateGroupe && <p className="error-msg">{erreurDateGroupe}</p>}
           <p style={{ marginBottom: "0.75rem", color: "var(--text-muted, #666)" }}>
-            Les navettes sélectionnées seront conservées telles quelles ; une copie de chacune sera créée
+            Les mouvements sélectionnés seront conservés tels quels ; une copie de chacun sera créée
             à la date choisie ci-dessous (non facturée).
           </p>
           <div className="form-field" style={{ marginBottom: "1rem" }}>
