@@ -43,12 +43,9 @@ class _StampFlowable(Flowable):
         c.circle(cx, cy, radius - 3.2 * mm, stroke=1, fill=0)
         c.setFillColor(NAVY)
         c.setFont("Helvetica-Bold", 7.2)
-        c.drawCentredString(cx, cy + 7.5 * mm, self.company_name[:25])
-        c.setFont("Helvetica-Bold", 8)
-        c.drawCentredString(cx, cy + 1.5 * mm, "Transport")
-        c.drawCentredString(cx, cy - 1.8 * mm, "& Services")
+        c.drawCentredString(cx, cy + 3 * mm, self.company_name[:25])
         c.setFont("Helvetica-Bold", 6.5)
-        c.drawCentredString(cx, cy - 8.2 * mm, "★  TUNISIE  ★")
+        c.drawCentredString(cx, cy - 4 * mm, "★  TUNISIE  ★")
         c.restoreState()
 
 from . import models
@@ -135,7 +132,6 @@ def _paragraph(text: str, style: ParagraphStyle) -> Paragraph:
 def _company_block(logo_path: str, styles):
     """Bloc société stable et parfaitement aligné."""
     company_name = _env("INVOICE_COMPANY_NAME", "EURAFR TOURS")
-    company_activity = _env("INVOICE_COMPANY_ACTIVITY", "Transport & Services")
     address = _env("INVOICE_COMPANY_ADDRESS", "Avenue Abou Dhabi - hammamet, Tunisie")
     phone = _env("INVOICE_COMPANY_PHONE", "+216 29 647 607")
     email = _env("INVOICE_COMPANY_EMAIL", "eurafr.tours@orange.tn")
@@ -148,10 +144,10 @@ def _company_block(logo_path: str, styles):
 
     info = [
         Paragraph(_safe(company_name), styles["company_name"]),
-        Paragraph(_safe(company_activity), styles["company_activity"]),
         Spacer(1, 0.6 * mm),
         Paragraph(f"<b>Adresse :</b> {_safe(address)}", styles["company_info"]),
-        Paragraph(f"<b>Tél :</b> {_safe(phone)}   <b>Email :</b> {_safe(email)}", styles["company_info"]),
+        Paragraph(f"<b>Tél :</b> {_safe(phone)}", styles["company_info"]),
+        Paragraph(f"<b>Email :</b> {_safe(email)}", styles["company_info"]),
         Paragraph(f"<b>Matricule fiscal :</b> {_safe(fiscal)}", styles["company_info"]),
     ]
 
@@ -355,7 +351,7 @@ def _recap_rows(facture, styles):
 
 def _table_facture(facture, recap: bool, styles):
     if recap:
-        headers = ["DÉSIGNATION", "SHIFT / PÉRIODE", "NOMBRE DE MOUVEMENTS", "PRIX UNIT. (DT)", "MONTANT (DT)"]
+        headers = ["DÉSIGNATION", "SHIFT / PÉRIODE", "NB NAVETTES", "PRIX UNIT. (DT)", "MONTANT (DT)"]
         rows = _recap_rows(facture, styles)
         widths = [49 * mm, 34 * mm, 37 * mm, 27 * mm, 27 * mm]
     else:
@@ -447,6 +443,22 @@ def _signature_area(styles):
         ("RIGHTPADDING", (0, 0), (-1, -1), 0),
     ]))
     return block
+
+
+def _bank_info(base):
+    bank_style = ParagraphStyle("bank_name", parent=base["Normal"], fontName="Helvetica-Bold", fontSize=8.5, textColor=TEXT, alignment=TA_CENTER)
+    line_style = ParagraphStyle("bank_line", parent=base["Normal"], fontName="Helvetica", fontSize=8.5, textColor=TEXT, alignment=TA_CENTER)
+    return Table([
+        [Paragraph("BANK NATIONALE AGRICOLE Hammamet", bank_style)],
+        [Paragraph("RIB : 03-302-059 0115 005098", line_style)],
+        [Paragraph("SWIFT : BNTENTT", line_style)],
+    ], colWidths=[178 * mm], style=TableStyle([
+        ("LINEABOVE", (0, 0), (-1, 0), 0.8, NAVY),
+        ("TOPPADDING", (0, 0), (-1, 0), 3 * mm),
+        ("BOTTOMPADDING", (0, 0), (-1, 0), 1.2 * mm),
+        ("TOPPADDING", (0, 1), (-1, -1), 0.8 * mm),
+        ("BOTTOMPADDING", (0, 1), (-1, -1), 0.8 * mm),
+    ]))
 
 
 def _build_invoice_pdf(facture: models.Facture, *, recap: bool) -> bytes:
@@ -547,10 +559,7 @@ def _build_invoice_pdf(facture: models.Facture, *, recap: bool) -> bytes:
         Spacer(1, 4 * mm),
         _signature_area(styles),
         Spacer(1, 1.5 * mm),
-        Table([[Paragraph("Merci pour votre confiance.", ParagraphStyle("thanks", parent=base["Normal"], fontName="Helvetica-Bold", fontSize=8.5, textColor=TEXT, alignment=TA_CENTER))]], colWidths=[178 * mm], style=TableStyle([
-            ("LINEABOVE", (0, 0), (-1, 0), 0.8, NAVY),
-            ("TOPPADDING", (0, 0), (-1, -1), 3 * mm),
-        ])),
+        _bank_info(base),
     ]
 
     doc.build(elements, canvasmaker=_CanvasNumerote)
