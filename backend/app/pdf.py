@@ -98,7 +98,6 @@ class _CanvasNumerote(pdfcanvas.Canvas):
         self.line(16 * mm, 15 * mm, page_width - 16 * mm, 15 * mm)
         self.setFillColor(MUTED)
         self.setFont("Helvetica", 7.5)
-        self.drawString(16 * mm, 10.5 * mm, "Document généré automatiquement par le système de facturation")
         self.drawRightString(page_width - 16 * mm, 10.5 * mm, f"Page {self._pageNumber}/{total_pages}")
 
 
