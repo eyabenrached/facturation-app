@@ -133,7 +133,7 @@ def _company_block(logo_path: str, styles):
     """Bloc société stable et parfaitement aligné."""
     company_name = _env("INVOICE_COMPANY_NAME", "EURAFR TOURS")
     address = _env("INVOICE_COMPANY_ADDRESS", "Avenue Abou Dhabi - hammamet,8050, Tunisie BP 268")
-    phone = _env("INVOICE_COMPANY_PHONE", "+216 29 647 607")
+    phone = _env("INVOICE_COMPANY_PHONE", "+216 72 266 899")
     email = _env("INVOICE_COMPANY_EMAIL", "eurafr.tours@orange.tn")
     fiscal = _env("INVOICE_COMPANY_FISCAL_ID", "1289488S/A/M/000")
 
@@ -450,8 +450,8 @@ def _bank_info(base):
     line_style = ParagraphStyle("bank_line", parent=base["Normal"], fontName="Helvetica", fontSize=8.5, textColor=TEXT, alignment=TA_CENTER)
     return Table([
         [Paragraph("BANK NATIONALE AGRICOLE Hammamet", bank_style)],
-        [Paragraph("RIB : 03-302-059 0115 005098", line_style)],
-        [Paragraph("SWIFT : BNTENTT", line_style)],
+        [Paragraph("RIB : 03-302-059 0115 005098-03", line_style)],
+        [Paragraph("SWIFT : BNTETNTT", line_style)],
     ], colWidths=[178 * mm], style=TableStyle([
         ("LINEABOVE", (0, 0), (-1, 0), 0.8, NAVY),
         ("TOPPADDING", (0, 0), (-1, 0), 3 * mm),
