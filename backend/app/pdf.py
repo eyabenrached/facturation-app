@@ -229,7 +229,7 @@ def _client_info(facture, styles):
                 styles["info_value"]
             ),
         ],
-  
+
     ]
 
     # Informations facture
