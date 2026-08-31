@@ -132,7 +132,7 @@ def _paragraph(text: str, style: ParagraphStyle) -> Paragraph:
 def _company_block(logo_path: str, styles):
     """Bloc société stable et parfaitement aligné."""
     company_name = _env("INVOICE_COMPANY_NAME", "EURAFR TOURS")
-    address = _env("INVOICE_COMPANY_ADDRESS", "Avenue Abou Dhabi - hammamet, Tunisie")
+    address = _env("INVOICE_COMPANY_ADDRESS", "Avenue Abou Dhabi - hammamet,8050, Tunisie BP 268")
     phone = _env("INVOICE_COMPANY_PHONE", "+216 29 647 607")
     email = _env("INVOICE_COMPANY_EMAIL", "eurafr.tours@orange.tn")
     fiscal = _env("INVOICE_COMPANY_FISCAL_ID", "1289488S/A/M/000")
