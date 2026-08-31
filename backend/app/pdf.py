@@ -143,21 +143,20 @@ def _company_block(logo_path: str, styles):
     fiscal = _env("INVOICE_COMPANY_FISCAL_ID", "1289488S/A/M/000")
 
     if Path(logo_path).exists():
-        logo = Image(logo_path, width=25 * mm, height=25 * mm, kind="proportional")
+        logo = Image(logo_path, width=20 * mm, height=20 * mm, kind="proportional")
     else:
-        logo = Spacer(25 * mm, 25 * mm)
+        logo = Spacer(20 * mm, 20 * mm)
 
     info = [
         Paragraph(_safe(company_name), styles["company_name"]),
         Paragraph(_safe(company_activity), styles["company_activity"]),
-        Spacer(1, 1.5 * mm),
+        Spacer(1, 0.6 * mm),
         Paragraph(f"<b>Adresse :</b> {_safe(address)}", styles["company_info"]),
-        Paragraph(f"<b>Tél :</b> {_safe(phone)}", styles["company_info"]),
-        Paragraph(f"<b>Email :</b> {_safe(email)}", styles["company_info"]),
+        Paragraph(f"<b>Tél :</b> {_safe(phone)}   <b>Email :</b> {_safe(email)}", styles["company_info"]),
         Paragraph(f"<b>Matricule fiscal :</b> {_safe(fiscal)}", styles["company_info"]),
     ]
 
-    table = Table([[logo, info]], colWidths=[28 * mm, 66 * mm])
+    table = Table([[logo, info]], colWidths=[20 * mm, 60 * mm])
     table.setStyle(TableStyle([
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
         ("LEFTPADDING", (0, 0), (-1, -1), 0),
@@ -184,8 +183,8 @@ def _invoice_meta(facture, styles):
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
         ("LEFTPADDING", (0, 0), (-1, -1), 4 * mm),
         ("RIGHTPADDING", (0, 0), (-1, -1), 3 * mm),
-        ("TOPPADDING", (0, 0), (-1, -1), 2.2 * mm),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 2.2 * mm),
+        ("TOPPADDING", (0, 0), (-1, -1), 1 * mm),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 1 * mm),
     ]))
     return table
 
@@ -385,28 +384,6 @@ def _table_facture(facture, recap: bool, styles):
 
 
 def _totals_and_summary(facture, styles):
-    total_mouvements = len(facture.mouvements)
-    par_heure = {}
-    for m in facture.mouvements:
-        par_heure.setdefault(m.heure, 0)
-        par_heure[m.heure] += 1
-
-    summary_lines = [
-        [Paragraph("ARRÊTÉ DE LA FACTURE", styles["summary_title"])],
-        [Paragraph(f"<b>Nombre total de mouvements :</b> {total_mouvements}", styles["summary_text"])],
-    ]
-    for heure in sorted(par_heure):
-        summary_lines.append([Paragraph(f"- Départ {heure.strftime('%Hh%M')} : <b>{par_heure[heure]} mouvement(s)</b>", styles["summary_text"])])
-    summary = Table(summary_lines, colWidths=[86 * mm])
-    summary.setStyle(TableStyle([
-        ("BOX", (0, 0), (-1, -1), 0.8, LINE),
-        ("BACKGROUND", (0, 0), (-1, 0), BLUE_PALE),
-        ("LEFTPADDING", (0, 0), (-1, -1), 4 * mm),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 4 * mm),
-        ("TOPPADDING", (0, 0), (-1, -1), 2.2 * mm),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 2.2 * mm),
-    ]))
-
     totals_data = [
         [Paragraph("SOUS-TOTAL", styles["total_label"]), Paragraph(_fmt_money(facture.montant_ht), styles["total_value"])],
         [Paragraph(f"TVA ({float(facture.taux_tva):.0f}%)", styles["total_label"]), Paragraph(_fmt_money(facture.montant_tva), styles["total_value"])],
@@ -425,8 +402,9 @@ def _totals_and_summary(facture, styles):
         ("BACKGROUND", (0, 2), (-1, 2), BLUE_SOFT),
     ]))
 
-    return Table([[summary, totals]], colWidths=[86 * mm, 87 * mm], style=TableStyle([
+    return Table([["", totals]], colWidths=[86 * mm, 87 * mm], style=TableStyle([
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("ALIGN", (1, 0), (1, 0), "RIGHT"),
         ("LEFTPADDING", (0, 0), (-1, -1), 0),
         ("RIGHTPADDING", (0, 0), (-1, -1), 0),
     ]))
@@ -489,10 +467,10 @@ def _build_invoice_pdf(facture: models.Facture, *, recap: bool) -> bytes:
 
     base = getSampleStyleSheet()
     styles = {
-        "company_name": ParagraphStyle("company_name", parent=base["Normal"], fontName="Helvetica-Bold", fontSize=15.5, leading=17, textColor=NAVY),
-        "company_activity": ParagraphStyle("company_activity", parent=base["Normal"], fontName="Helvetica", fontSize=10.5, leading=12, textColor=TEXT),
-        "company_info": ParagraphStyle("company_info", parent=base["Normal"], fontName="Helvetica", fontSize=8.4, leading=11.2, textColor=TEXT),
-        "invoice_title": ParagraphStyle("invoice_title", parent=base["Normal"], fontName="Helvetica-Bold", fontSize=28, leading=29, textColor=NAVY, alignment=TA_RIGHT),
+        "company_name": ParagraphStyle("company_name", parent=base["Normal"], fontName="Helvetica-Bold", fontSize=14.5, leading=15.5, textColor=NAVY),
+        "company_activity": ParagraphStyle("company_activity", parent=base["Normal"], fontName="Helvetica", fontSize=10, leading=11, textColor=TEXT),
+        "company_info": ParagraphStyle("company_info", parent=base["Normal"], fontName="Helvetica", fontSize=8.2, leading=10, textColor=TEXT),
+        "invoice_title": ParagraphStyle("invoice_title", parent=base["Normal"], fontName="Helvetica-Bold", fontSize=22, leading=23, textColor=NAVY, alignment=TA_RIGHT),
         "meta_label": ParagraphStyle("meta_label", parent=base["Normal"], fontName="Helvetica-Bold", fontSize=8.6, leading=10.5, textColor=TEXT),
         "meta_value": ParagraphStyle("meta_value", parent=base["Normal"], fontName="Helvetica", fontSize=8.6, leading=10.5, textColor=TEXT),
         "section_badge": ParagraphStyle("section_badge", parent=base["Normal"], fontName="Helvetica-Bold", fontSize=8.8, leading=10, textColor=WHITE, alignment=TA_CENTER),
@@ -528,7 +506,7 @@ def _build_invoice_pdf(facture: models.Facture, *, recap: bool) -> bytes:
     right_header = Table(
         [
             [invoice_title],
-            [Spacer(1, 2 * mm)],
+            [Spacer(1, 1 * mm)],
             [invoice_meta],
         ],
         colWidths=[90 * mm],
@@ -557,7 +535,7 @@ def _build_invoice_pdf(facture: models.Facture, *, recap: bool) -> bytes:
 
     elements = [
         header,
-        Spacer(1, 5 * mm),
+        Spacer(1, 1.5 * mm),
         _client_info(facture, styles),
         Spacer(1, 3.5 * mm),
         _table_facture(facture, recap=recap, styles=styles),
