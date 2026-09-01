@@ -308,6 +308,16 @@ def _client_info(facture, styles):
 
     return block
 
+def _prix_mouvement(m):
+    """`Mouvement` (facturation classique) expose `prix_applique`, tandis que
+    `MouvementLocation` expose `prix`. On lit le champ disponible pour que le
+    même rendu PDF fonctionne avec les deux modèles."""
+    prix = getattr(m, "prix_applique", None)
+    if prix is None:
+        prix = getattr(m, "prix", 0)
+    return float(prix)
+
+
 def _detail_rows(facture, styles):
     mouvements = sorted(facture.mouvements, key=lambda m: (m.date, m.heure))
     rows = []
@@ -322,7 +332,7 @@ def _detail_rows(facture, styles):
             Paragraph(m.heure.strftime("%H:%M"), styles["table_cell"]),
             Paragraph(designation, styles["table_cell"]),
             Paragraph(_label_vehicule(m.vehicule), styles["table_cell"]),
-            Paragraph(_fmt_money(m.prix_applique), styles["table_cell_right"]),
+            Paragraph(_fmt_money(_prix_mouvement(m)), styles["table_cell_right"]),
         ])
     return rows
 
@@ -335,7 +345,7 @@ def _recap_rows(facture, styles):
     rows = []
     for heure in sorted(groupes):
         mouvements = groupes[heure]
-        total = sum(float(m.prix_applique) for m in mouvements)
+        total = sum(_prix_mouvement(m) for m in mouvements)
         nb = len(mouvements)
         unit = total / nb if nb else 0
         heure_txt = heure.strftime("%Hh%M")
