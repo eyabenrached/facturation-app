@@ -166,7 +166,11 @@ export default function MouvementsLocation() {
   }
 
   // ---------- Génération de facture ----------
-  const mouvementsNonFactures = mouvements.filter((m) => !m.facture_id && m.client.trim().toLowerCase() === filtreClient.trim().toLowerCase());
+  // `mouvements` est déjà filtré côté serveur par `filtreClient` (correspondance
+  // partielle, insensible à la casse). Ne pas refaire un filtre par égalité
+  // stricte ici, sinon un client saisi partiellement (ex. "Lions" pour
+  // "Lions CLub Mme Nafissa") ne matche plus rien et le récap tombe à 0.
+  const mouvementsNonFactures = mouvements.filter((m) => !m.facture_id);
   const totalHT = mouvementsNonFactures.reduce((s, m) => s + Number(m.prix), 0);
   const montantTva = Math.round(totalHT * tauxTvaFacture) / 100;
   const totalTTC = Math.round((totalHT + montantTva) * 1000) / 1000;

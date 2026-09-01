@@ -1,7 +1,6 @@
 from datetime import date, datetime
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
-from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from .. import models, schemas
@@ -59,11 +58,14 @@ def generer_facture_location(payload: schemas.FactureLocationGenerateRequest, db
     if db.query(models.FactureLocation).filter(models.FactureLocation.numero_facture == payload.numero_facture).first():
         raise HTTPException(400, "Ce numéro de facture est déjà utilisé. Merci d'en choisir un autre.")
 
-    # Correspondance insensible à la casse/espaces, car "client" est un champ texte libre.
+    # Correspondance partielle insensible à la casse, cohérente avec le filtre
+    # utilisé sur la liste des mouvements (ilike). Une correspondance exacte
+    # ferait échouer la génération dès que le filtre client saisi est partiel
+    # (ex. "Lions" pour un mouvement enregistré "Lions CLub Mme Nafissa").
     mouvements = (
         db.query(models.MouvementLocation)
         .filter(
-            func.lower(func.trim(models.MouvementLocation.client)) == nom_client.lower(),
+            models.MouvementLocation.client.ilike(f"%{nom_client}%"),
             models.MouvementLocation.date >= payload.date_debut,
             models.MouvementLocation.date <= payload.date_fin,
             models.MouvementLocation.facture_id.is_(None),
