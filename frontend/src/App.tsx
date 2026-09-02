@@ -1,4 +1,5 @@
-import { BrowserRouter, Routes, Route, NavLink, Navigate } from "react-router-dom";
+import { useState } from "react";
+import { BrowserRouter, Routes, Route, NavLink, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "./auth/AuthContext";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
@@ -15,7 +16,7 @@ import Finances from "./pages/Finances";
 import MouvementsLocation from "./pages/MouvementsLocation";
 import Utilisateurs from "./pages/Utilisateurs";
 
-function Sidebar() {
+function Sidebar({ ouverte, onFermer }: { ouverte: boolean; onFermer: () => void }) {
   const { utilisateur, deconnecter } = useAuth();
   const estAdmin = utilisateur?.role === "administrateur";
 
@@ -28,9 +29,9 @@ function Sidebar() {
   ];
 
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar${ouverte ? " sidebar-ouverte" : ""}`}>
       <h1>Facturation Transport</h1>
-      <nav>
+      <nav onClick={onFermer}>
         {estAdmin && (
           <NavLink to="/dashboard" className={({ isActive }) => (isActive ? "active" : "")}>
             Tableau de bord
@@ -82,6 +83,14 @@ function Sidebar() {
 
 function RoutesProtegees() {
   const { utilisateur, chargement } = useAuth();
+  const [menuOuvert, setMenuOuvert] = useState(false);
+  const location = useLocation();
+
+  // Referme automatiquement le menu mobile à chaque changement de page.
+  const cheminPrecedent = useState(location.pathname)[0];
+  if (menuOuvert && location.pathname !== cheminPrecedent) {
+    setMenuOuvert(false);
+  }
 
   if (chargement) return null;
   if (!utilisateur) return <Login />;
@@ -90,7 +99,24 @@ function RoutesProtegees() {
 
   return (
     <div className="app-layout">
-      <Sidebar />
+      <header className="mobile-header">
+        <button
+          type="button"
+          className="mobile-menu-btn"
+          aria-label={menuOuvert ? "Fermer le menu" : "Ouvrir le menu"}
+          aria-expanded={menuOuvert}
+          onClick={() => setMenuOuvert((v) => !v)}
+        >
+          <span />
+          <span />
+          <span />
+        </button>
+        <span className="mobile-header-title">Facturation Transport</span>
+      </header>
+
+      {menuOuvert && <div className="sidebar-overlay" onClick={() => setMenuOuvert(false)} />}
+
+      <Sidebar ouverte={menuOuvert} onFermer={() => setMenuOuvert(false)} />
       <main className="content">
         <Routes>
           <Route path="/" element={<Navigate to={estAdmin ? "/dashboard" : "/mouvements"} replace />} />
