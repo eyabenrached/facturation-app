@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { BrowserRouter, Routes, Route, NavLink, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "./auth/AuthContext";
 import Login from "./pages/Login";
@@ -87,10 +87,9 @@ function RoutesProtegees() {
   const location = useLocation();
 
   // Referme automatiquement le menu mobile à chaque changement de page.
-  const cheminPrecedent = useState(location.pathname)[0];
-  if (menuOuvert && location.pathname !== cheminPrecedent) {
+  useEffect(() => {
     setMenuOuvert(false);
-  }
+  }, [location.pathname]);
 
   if (chargement) return null;
   if (!utilisateur) return <Login />;
