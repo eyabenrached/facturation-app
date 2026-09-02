@@ -33,6 +33,7 @@ export default function Mouvements() {
   const [dateDu, setDateDu] = useState("");
   const [dateAu, setDateAu] = useState("");
   const [filtreClient, setFiltreClient] = useState("");
+  const [filtreCircuit, setFiltreCircuit] = useState("");
   const [filtreStatutMvt, setFiltreStatutMvt] = useState("");
   const [filtreHeure, setFiltreHeure] = useState("");
   const [filtreTransporteur, setFiltreTransporteur] = useState("");
@@ -79,6 +80,7 @@ export default function Mouvements() {
     if (dateDu) params.set("date_du", dateDu);
     if (dateAu) params.set("date_au", dateAu);
     if (filtreClient) params.set("client_id", filtreClient);
+    if (filtreCircuit) params.set("circuit_id", filtreCircuit);
     if (filtreStatutMvt) params.set("statut", filtreStatutMvt);
     if (filtreHeure) params.set("heure", filtreHeure);
     if (filtreTransporteur) params.set("transporteur_id", filtreTransporteur);
@@ -88,7 +90,7 @@ export default function Mouvements() {
 
   useEffect(() => {
     chargerMouvements();
-  }, [dateDu, dateAu, filtreClient, filtreStatutMvt, filtreHeure, filtreTransporteur, filtreChauffeur]);
+  }, [dateDu, dateAu, filtreClient, filtreCircuit, filtreStatutMvt, filtreHeure, filtreTransporteur, filtreChauffeur]);
 
   // ---------- Ajout d'un mouvement ----------
   function ouvrirAjoutMouvement() {
@@ -282,6 +284,15 @@ export default function Mouvements() {
             <option value="">Tous les clients</option>
             {clients.map((c) => (
               <option key={c.id} value={c.id}>{c.nom_societe}</option>
+            ))}
+          </select>
+        </div>
+        <div className="form-field">
+          <label>Circuit</label>
+          <select value={filtreCircuit} onChange={(e) => setFiltreCircuit(e.target.value)}>
+            <option value="">Tous les circuits</option>
+            {circuits.map((c) => (
+              <option key={c.id} value={c.id}>{c.point_depart} → {c.point_arrivee}</option>
             ))}
           </select>
         </div>
