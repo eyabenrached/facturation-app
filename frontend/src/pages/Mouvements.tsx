@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
-import { Mouvement, Client, Circuit, Chauffeur, Vehicule, Agence } from "../types";
+import { Mouvement, Client, Circuit, Chauffeur, Vehicule, Agence, Parametres } from "../types";
 import { DataTable } from "../components/DataTable";
 import { Modal } from "../components/Modal";
 import { RecapTransporteurs } from "../components/RecapTransporteurs";
@@ -20,7 +20,8 @@ const VIDE_MOUVEMENT = {
 };
 
 export default function Mouvements() {
-  useAuth();
+  const { utilisateur } = useAuth();
+  const estAdmin = utilisateur?.role === "administrateur";
 
   // Référentiels
   const [clients, setClients] = useState<Client[]>([]);
@@ -55,6 +56,35 @@ export default function Mouvements() {
   const [nouvelleDateGroupe, setNouvelleDateGroupe] = useState("");
   const [erreurDateGroupe, setErreurDateGroupe] = useState("");
 
+  // Blocage global (admin) de la fonctionnalité de sélection groupée
+  const [parametres, setParametres] = useState<Parametres | null>(null);
+  const selectionActive = parametres?.duplication_mouvements_active ?? true;
+  const prixAutoActif = parametres?.prix_automatique_actif ?? true;
+
+  async function chargerParametres() {
+    try {
+      setParametres(await api.get<Parametres>("/parametres/"));
+    } catch (e) {
+      console.error("Impossible de charger les paramètres globaux :", e);
+    }
+  }
+
+  async function basculerParametre(champ: keyof Parametres, messageBlocage: string) {
+    if (!parametres) return;
+    const nouvelleValeur = !parametres[champ];
+    if (!nouvelleValeur && !confirm(messageBlocage)) return;
+    try {
+      const maj = await api.put<Parametres>("/parametres/", { [champ]: nouvelleValeur });
+      setParametres(maj);
+      if (champ === "duplication_mouvements_active" && !maj.duplication_mouvements_active) {
+        setModeSelection(false);
+        setSelectionnes(new Set());
+      }
+    } catch (e) {
+      alert((e as Error).message);
+    }
+  }
+
   useEffect(() => {
     api.get<Client[]>("/clients/").then(setClients);
     api.get<Circuit[]>("/circuits/").then((data) =>
@@ -73,6 +103,7 @@ export default function Mouvements() {
     );
     api.get<Vehicule[]>("/vehicules/").then(setVehicules);
     api.get<Agence[]>("/agences/").then(setAgences);
+    chargerParametres();
   }, []);
 
   async function chargerMouvements() {
@@ -146,6 +177,7 @@ export default function Mouvements() {
   // champs sont renseignés dans le formulaire.
   useEffect(() => {
     if (!modalMvtOuvert) return;
+    if (!prixAutoActif) return;
     if (!formMvt.client_id || !formMvt.circuit_id || !formMvt.heure) return;
 
     const params = new URLSearchParams();
@@ -167,7 +199,7 @@ export default function Mouvements() {
     return () => {
       annule = true;
     };
-  }, [modalMvtOuvert, formMvt.client_id, formMvt.circuit_id, formMvt.heure, formMvt.vehicule_id]);
+  }, [modalMvtOuvert, prixAutoActif, formMvt.client_id, formMvt.circuit_id, formMvt.heure, formMvt.vehicule_id]);
 
   async function enregistrerMouvement() {
     setErreurMvt("");
@@ -257,14 +289,52 @@ export default function Mouvements() {
       <div className="page-header">
         <h2>Mouvements</h2>
         <div style={{ display: "flex", gap: "0.5rem" }}>
-          {modeSelection && selectionnes.size > 0 && (
+          {estAdmin && modeSelection && selectionnes.size > 0 && (
             <button className="btn" onClick={ouvrirModalDateGroupe}>
               Dupliquer à une nouvelle date ({selectionnes.size} sélectionné{selectionnes.size > 1 ? "s" : ""})
             </button>
           )}
-          <button className="btn secondary" onClick={basculerModeSelection}>
-            {modeSelection ? "Annuler la sélection" : "Sélectionner des mouvements à refaire"}
-          </button>
+          {estAdmin && selectionActive && (
+            <button className="btn secondary" onClick={basculerModeSelection}>
+              {modeSelection ? "Annuler la sélection" : "Sélectionner des mouvements à refaire"}
+            </button>
+          )}
+          {estAdmin && (
+            <button
+              className="btn secondary"
+              onClick={() =>
+                basculerParametre(
+                  "duplication_mouvements_active",
+                  "Bloquer la sélection de mouvements à refaire pour tous les utilisateurs ?"
+                )
+              }
+              title={
+                selectionActive
+                  ? "Bloquer cette fonctionnalité pour tous les utilisateurs"
+                  : "Débloquer cette fonctionnalité pour tous les utilisateurs"
+              }
+            >
+              {selectionActive ? "🔒 Bloquer la sélection" : "🔓 Débloquer la sélection"}
+            </button>
+          )}
+          {estAdmin && (
+            <button
+              className="btn secondary"
+              onClick={() =>
+                basculerParametre(
+                  "prix_automatique_actif",
+                  "Bloquer la saisie automatique des tarifs client pour tous les utilisateurs ? La saisie du prix deviendra manuelle."
+                )
+              }
+              title={
+                prixAutoActif
+                  ? "Bloquer la saisie automatique des tarifs client pour tous les utilisateurs"
+                  : "Débloquer la saisie automatique des tarifs client pour tous les utilisateurs"
+              }
+            >
+              {prixAutoActif ? "🔒 Bloquer tarifs auto" : "🔓 Débloquer tarifs auto"}
+            </button>
+          )}
           <button className="btn" onClick={ouvrirAjoutMouvement}>+ Ajouter un mouvement</button>
         </div>
       </div>
@@ -448,7 +518,9 @@ export default function Mouvements() {
             </div>
           </div>
           <div className="form-field" style={{ marginBottom: "1rem" }}>
-            <label>Prix *</label>
+            <label>
+              Prix * {!prixAutoActif && <span style={{ fontWeight: 400, color: "#6b7280" }}>(saisie manuelle — tarifs auto bloqués)</span>}
+            </label>
             <select
               value={prixSuggere !== null ? prixSuggere : ""}
               onChange={(e) => setPrixSuggere(e.target.value ? Number(e.target.value) : null)}

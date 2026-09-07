@@ -300,10 +300,12 @@ class NextNumeroOut(BaseModel):
 class ParametresOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     duplication_mouvements_active: bool
+    prix_automatique_actif: bool
 
 
 class ParametresUpdate(BaseModel):
-    duplication_mouvements_active: bool
+    duplication_mouvements_active: bool | None = None
+    prix_automatique_actif: bool | None = None
 
 
 # ---------- Fiche client détaillée ----------

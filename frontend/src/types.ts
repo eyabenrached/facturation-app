@@ -272,4 +272,5 @@ export interface ClientFiche {
 // ---------- Paramètres de l'application ----------
 export interface Parametres {
   duplication_mouvements_active: boolean;
+  prix_automatique_actif: boolean;
 }

@@ -277,3 +277,17 @@ class Depense(Base):
     vehicule: Mapped["Vehicule | None"] = relationship(back_populates="depenses")
     chauffeur: Mapped["Chauffeur | None"] = relationship(back_populates="depenses")
     transporteur: Mapped["Agence | None"] = relationship(foreign_keys=[transporteur_id])
+
+
+class ParametresApp(Base):
+    """Réglages globaux de l'application, valables pour tous les utilisateurs.
+
+    Une seule ligne (id=1) est utilisée en pratique. Créée automatiquement
+    au démarrage de l'application si elle n'existe pas encore.
+    """
+
+    __tablename__ = "parametres_app"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    duplication_mouvements_active: Mapped[bool] = mapped_column(default=True)
+    prix_automatique_actif: Mapped[bool] = mapped_column(default=True)

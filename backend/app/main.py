@@ -1,13 +1,14 @@
 import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
 
 from .database import Base, engine, SessionLocal
 from . import models  # noqa: F401 (nécessaire pour enregistrer les tables)
 from .security import hash_password
 from .routers import (
     chauffeurs, clients, agences, vehicules, circuits, mouvements, mouvements_location,
-    factures, factures_location, auth, utilisateurs, dashboard, depenses, finances,
+    factures, factures_location, auth, utilisateurs, dashboard, depenses, finances, parametres,
 )
 
 app = FastAPI(title="API Facturation Transport", version="1.0.0")
@@ -43,11 +44,29 @@ def creer_admin_par_defaut():
         db.close()
 
 
+def migrer_colonnes_manquantes():
+    """create_all() ne modifie jamais une table déjà existante : si le
+    projet a été mis à jour avec de nouvelles colonnes sur une table
+    préexistante (ex : parametres_app), il faut les ajouter nous-mêmes.
+    Sans migration Alembic en place, on fait cette petite rustine, sûre
+    à rejouer à chaque démarrage (IF NOT EXISTS)."""
+    with engine.begin() as conn:
+        conn.execute(text(
+            "ALTER TABLE parametres_app ADD COLUMN IF NOT EXISTS "
+            "duplication_mouvements_active BOOLEAN NOT NULL DEFAULT TRUE"
+        ))
+        conn.execute(text(
+            "ALTER TABLE parametres_app ADD COLUMN IF NOT EXISTS "
+            "prix_automatique_actif BOOLEAN NOT NULL DEFAULT TRUE"
+        ))
+
+
 @app.on_event("startup")
 def on_startup():
     # Pour démarrer rapidement en développement.
     # En production, préférer les migrations Alembic (voir dossier alembic/).
     Base.metadata.create_all(bind=engine)
+    migrer_colonnes_manquantes()
     creer_admin_par_defaut()
 
 
@@ -65,6 +84,7 @@ app.include_router(factures_location.router)
 app.include_router(dashboard.router)
 app.include_router(depenses.router)
 app.include_router(finances.router)
+app.include_router(parametres.router)
 
 
 @app.get("/")
