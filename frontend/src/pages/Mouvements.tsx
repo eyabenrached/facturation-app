@@ -63,6 +63,10 @@ export default function Mouvements() {
   // au besoin) ; le gestionnaire n'y a accès que si elle n'est pas bloquée.
   const selectionAutorisee = estAdmin || selectionActive;
   const prixAutoActif = parametres?.prix_automatique_actif ?? true;
+  // L'auto-remplissage du prix ne s'applique qu'au gestionnaire (l'admin saisit
+  // toujours le prix manuellement). Le bouton admin bloque/débloque cet
+  // auto-remplissage pour le gestionnaire.
+  const prixAutoEffectif = !estAdmin && prixAutoActif;
 
   async function chargerParametres() {
     try {
@@ -180,7 +184,7 @@ export default function Mouvements() {
   // champs sont renseignés dans le formulaire.
   useEffect(() => {
     if (!modalMvtOuvert) return;
-    if (!prixAutoActif) return;
+    if (!prixAutoEffectif) return;
     if (!formMvt.client_id || !formMvt.circuit_id || !formMvt.heure) return;
 
     const params = new URLSearchParams();
@@ -202,7 +206,7 @@ export default function Mouvements() {
     return () => {
       annule = true;
     };
-  }, [modalMvtOuvert, prixAutoActif, formMvt.client_id, formMvt.circuit_id, formMvt.heure, formMvt.vehicule_id]);
+  }, [modalMvtOuvert, prixAutoEffectif, formMvt.client_id, formMvt.circuit_id, formMvt.heure, formMvt.vehicule_id]);
 
   // Tarifs spécifiques du client sélectionné dans le formulaire de mouvement,
   // pour filtrer les circuits proposés et afficher l'horaire/prix connus
@@ -383,13 +387,13 @@ export default function Mouvements() {
               onClick={() =>
                 basculerParametre(
                   "prix_automatique_actif",
-                  "Bloquer la saisie automatique des tarifs client pour tous les utilisateurs ? La saisie du prix deviendra manuelle."
+                  "Bloquer la saisie automatique des tarifs pour le gestionnaire ? Il devra saisir le prix manuellement."
                 )
               }
               title={
                 prixAutoActif
-                  ? "Bloquer la saisie automatique des tarifs client pour tous les utilisateurs"
-                  : "Débloquer la saisie automatique des tarifs client pour tous les utilisateurs"
+                  ? "Bloquer la saisie automatique des tarifs pour le gestionnaire (vous, admin, saisissez déjà toujours le prix manuellement)"
+                  : "Débloquer la saisie automatique des tarifs pour le gestionnaire"
               }
             >
               {prixAutoActif ? "🔒 Bloquer tarifs auto" : "🔓 Débloquer tarifs auto"}
@@ -597,20 +601,44 @@ export default function Mouvements() {
           </div>
           <div className="form-field" style={{ marginBottom: "1rem" }}>
             <label>
-              Prix * {!prixAutoActif && <span style={{ fontWeight: 400, color: "#6b7280" }}>(saisie manuelle — tarifs auto bloqués)</span>}
-            </label>
-            <select
-              value={prixSuggere !== null ? prixSuggere : ""}
-              onChange={(e) => setPrixSuggere(e.target.value ? Number(e.target.value) : null)}
-            >
-              <option value="">— Sélectionner —</option>
-              {LISTE_PRIX.map((p) => (
-                <option key={p} value={p}>{p} TND</option>
-              ))}
-              {prixSuggere !== null && !LISTE_PRIX.includes(prixSuggere) && (
-                <option value={prixSuggere}>{prixSuggere} TND</option>
+              Prix *{" "}
+              {!estAdmin && prixAutoEffectif && (
+                <span style={{ fontWeight: 400, color: "#6b7280" }}>(rempli automatiquement — non modifiable)</span>
               )}
-            </select>
+              {!prixAutoEffectif && (
+                <span style={{ fontWeight: 400, color: "#6b7280" }}>
+                  (saisie manuelle{estAdmin ? " — admin" : " — tarifs auto bloqués"})
+                </span>
+              )}
+            </label>
+            {!estAdmin && prixAutoEffectif && prixSuggere !== null ? (
+              // Gestionnaire + tarif automatique trouvé : affichage figé, aucune interaction possible.
+              <div
+                style={{
+                  padding: "0.5rem 0.75rem",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "6px",
+                  background: "#f3f4f6",
+                  color: "#111827",
+                  fontWeight: 600,
+                }}
+              >
+                {prixSuggere} TND
+              </div>
+            ) : (
+              <select
+                value={prixSuggere !== null ? prixSuggere : ""}
+                onChange={(e) => setPrixSuggere(e.target.value ? Number(e.target.value) : null)}
+              >
+                <option value="">— Sélectionner —</option>
+                {LISTE_PRIX.map((p) => (
+                  <option key={p} value={p}>{p} TND</option>
+                ))}
+                {prixSuggere !== null && !LISTE_PRIX.includes(prixSuggere) && (
+                  <option value={prixSuggere}>{prixSuggere} TND</option>
+                )}
+              </select>
+            )}
           </div>
           <div className="form-actions">
             <button className="btn secondary" onClick={() => setModalMvtOuvert(false)}>Annuler</button>
