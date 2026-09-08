@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
-import { Mouvement, Client, Circuit, Chauffeur, Vehicule, Agence, Parametres } from "../types";
+import { Mouvement, Client, Circuit, Chauffeur, Vehicule, Agence, Parametres, TarifClient } from "../types";
 import { DataTable } from "../components/DataTable";
 import { Modal } from "../components/Modal";
 import { RecapTransporteurs } from "../components/RecapTransporteurs";
@@ -59,6 +59,9 @@ export default function Mouvements() {
   // Blocage global (admin) de la fonctionnalité de sélection groupée
   const [parametres, setParametres] = useState<Parametres | null>(null);
   const selectionActive = parametres?.duplication_mouvements_active ?? true;
+  // L'admin garde toujours accès à la fonctionnalité (pour pouvoir la débloquer
+  // au besoin) ; le gestionnaire n'y a accès que si elle n'est pas bloquée.
+  const selectionAutorisee = estAdmin || selectionActive;
   const prixAutoActif = parametres?.prix_automatique_actif ?? true;
 
   async function chargerParametres() {
@@ -201,6 +204,63 @@ export default function Mouvements() {
     };
   }, [modalMvtOuvert, prixAutoActif, formMvt.client_id, formMvt.circuit_id, formMvt.heure, formMvt.vehicule_id]);
 
+  // Tarifs spécifiques du client sélectionné dans le formulaire de mouvement,
+  // pour filtrer les circuits proposés et afficher l'horaire/prix connus
+  // (ex : FEINMETALL -> Ben Dsahha → Zi Kram, à telle heure, à tel prix).
+  const [tarifsClientActuel, setTarifsClientActuel] = useState<TarifClient[]>([]);
+
+  useEffect(() => {
+    if (!modalMvtOuvert || !formMvt.client_id) {
+      setTarifsClientActuel([]);
+      return;
+    }
+    let annule = false;
+    api
+      .get<TarifClient[]>(`/circuits/tarifs/?client_id=${formMvt.client_id}`)
+      .then((data) => {
+        if (!annule) setTarifsClientActuel(data);
+      })
+      .catch(() => {
+        if (!annule) setTarifsClientActuel([]);
+      });
+    return () => {
+      annule = true;
+    };
+  }, [modalMvtOuvert, formMvt.client_id]);
+
+  // Si le client a des tarifs spécifiques définis, on ne propose que les
+  // circuits concernés ; sinon on laisse la liste complète des circuits.
+  const circuitsPourClient =
+    tarifsClientActuel.length > 0
+      ? circuits.filter((c) => tarifsClientActuel.some((t) => t.circuit_id === c.id))
+      : circuits;
+
+  function tarifsDuCircuit(circuitId: number) {
+    return tarifsClientActuel.filter((t) => t.circuit_id === circuitId);
+  }
+
+  function libelleCircuitAvecTarif(c: Circuit) {
+    const tarifs = tarifsDuCircuit(c.id);
+    const base = `${c.point_depart} → ${c.point_arrivee}`;
+    if (tarifs.length === 1) {
+      const t = tarifs[0];
+      return `${base} — ${t.heure_debut || "toute heure"} — ${t.prix} TND`;
+    }
+    if (tarifs.length > 1) {
+      return `${base} (${tarifs.length} tarifs)`;
+    }
+    return base;
+  }
+
+  function choisirCircuit(circuitId: number) {
+    const tarifs = tarifsDuCircuit(circuitId);
+    if (tarifs.length === 1 && tarifs[0].heure_debut) {
+      majFormMvt({ circuit_id: circuitId, heure: tarifs[0].heure_debut });
+    } else {
+      majFormMvt({ circuit_id: circuitId });
+    }
+  }
+
   async function enregistrerMouvement() {
     setErreurMvt("");
     if (prixSuggere === null) {
@@ -289,12 +349,12 @@ export default function Mouvements() {
       <div className="page-header">
         <h2>Mouvements</h2>
         <div style={{ display: "flex", gap: "0.5rem" }}>
-          {estAdmin && modeSelection && selectionnes.size > 0 && (
+          {selectionAutorisee && modeSelection && selectionnes.size > 0 && (
             <button className="btn" onClick={ouvrirModalDateGroupe}>
               Dupliquer à une nouvelle date ({selectionnes.size} sélectionné{selectionnes.size > 1 ? "s" : ""})
             </button>
           )}
-          {estAdmin && selectionActive && (
+          {selectionAutorisee && (
             <button className="btn secondary" onClick={basculerModeSelection}>
               {modeSelection ? "Annuler la sélection" : "Sélectionner des mouvements à refaire"}
             </button>
@@ -470,17 +530,35 @@ export default function Mouvements() {
             </div>
             <div className="form-field">
               <label>Client (sélection)</label>
-              <select value={formMvt.client_id || ""} onChange={(e) => majFormMvt({ client_id: Number(e.target.value) })}>
+              <select
+                value={formMvt.client_id || ""}
+                onChange={(e) => majFormMvt({ client_id: Number(e.target.value), circuit_id: 0 })}
+              >
                 <option value="">— Sélectionner —</option>
                 {clients.map((c) => <option key={c.id} value={c.id}>{c.nom_societe}</option>)}
               </select>
             </div>
             <div className="form-field">
               <label>Circuit / destination (sélection)</label>
-              <select value={formMvt.circuit_id || ""} onChange={(e) => majFormMvt({ circuit_id: Number(e.target.value) })}>
+              <select value={formMvt.circuit_id || ""} onChange={(e) => choisirCircuit(Number(e.target.value))}>
                 <option value="">— Sélectionner —</option>
-                {circuits.map((c) => <option key={c.id} value={c.id}>{c.point_depart} → {c.point_arrivee}</option>)}
+                {circuitsPourClient.map((c) => (
+                  <option key={c.id} value={c.id}>{libelleCircuitAvecTarif(c)}</option>
+                ))}
+                {formMvt.circuit_id > 0 && !circuitsPourClient.some((c) => c.id === formMvt.circuit_id) && (
+                  (() => {
+                    const c = circuits.find((x) => x.id === formMvt.circuit_id);
+                    return c ? <option key={c.id} value={c.id}>{libelleCircuitAvecTarif(c)}</option> : null;
+                  })()
+                )}
               </select>
+              {formMvt.client_id > 0 && (
+                <p style={{ fontSize: "0.75rem", color: "#6b7280", marginTop: "0.3rem" }}>
+                  {tarifsClientActuel.length > 0
+                    ? `${circuitsPourClient.length} circuit(s) avec tarif spécifique pour ce client.`
+                    : "Aucun tarif spécifique pour ce client — tous les circuits sont proposés."}
+                </p>
+              )}
             </div>
             <div className="form-field">
               <label>Transporteur (optionnel)</label>

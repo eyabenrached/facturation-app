@@ -46,7 +46,10 @@ def supprimer_circuit(circuit_id: int, db: Session = Depends(get_db)):
 
 
 # ---------- Tarifs spécifiques client+circuit (surcharge de prix) ----------
-@router.get("/tarifs/", response_model=list[schemas.TarifClientOut], dependencies=[Depends(exiger_admin)])
+# Lecture ouverte à tout utilisateur connecté (nécessaire pour filtrer les
+# circuits selon le client choisi dans le formulaire de mouvement) ; la
+# création/modification/suppression restent réservées aux administrateurs.
+@router.get("/tarifs/", response_model=list[schemas.TarifClientOut], dependencies=[Depends(exiger_utilisateur_connecte)])
 def liste_tarifs(client_id: int | None = None, circuit_id: int | None = None, db: Session = Depends(get_db)):
     q = db.query(models.TarifClient)
     if client_id:
