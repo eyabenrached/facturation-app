@@ -269,6 +269,28 @@ export interface ClientFiche {
   chiffre_affaires_impaye: number;
 }
 
+// ---------- Messagerie interne ----------
+export interface MessageChat {
+  id: number;
+  conversation_id: number;
+  expediteur_id: number;
+  contenu: string;
+  date_envoi: string;
+  expediteur?: Utilisateur | null;
+}
+
+export type TypeConversation = "generale" | "privee";
+
+export interface ConversationChat {
+  id: number;
+  type: TypeConversation;
+  nom: string | null;
+  date_creation: string;
+  membres: Utilisateur[];
+  dernier_message: MessageChat | null;
+  non_lus: number;
+}
+
 // ---------- Paramètres de l'application ----------
 export interface Parametres {
   duplication_mouvements_active: boolean;

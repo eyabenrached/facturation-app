@@ -38,6 +38,36 @@ class TokenOut(BaseModel):
     utilisateur: UtilisateurOut
 
 
+# ---------- Messagerie interne ----------
+class MessageOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    conversation_id: int
+    expediteur_id: int
+    contenu: str
+    date_envoi: datetime
+    expediteur: UtilisateurOut | None = None
+
+
+class MessageCreate(BaseModel):
+    contenu: str
+
+
+class ConversationPriveeCreate(BaseModel):
+    utilisateur_id: int
+
+
+class ConversationDetailOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    type: str
+    nom: str | None = None
+    date_creation: datetime
+    membres: list[UtilisateurOut] = []
+    dernier_message: MessageOut | None = None
+    non_lus: int = 0
+
+
 # ---------- Chauffeurs ----------
 class ChauffeurBase(BaseModel):
     nom: str

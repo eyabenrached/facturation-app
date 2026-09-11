@@ -15,6 +15,7 @@ import Depenses from "./pages/Depenses";
 import Finances from "./pages/Finances";
 import MouvementsLocation from "./pages/MouvementsLocation";
 import Utilisateurs from "./pages/Utilisateurs";
+import MessagerieWidget from "./components/MessagerieWidget";
 
 function Sidebar({ ouverte, onFermer }: { ouverte: boolean; onFermer: () => void }) {
   const { utilisateur, deconnecter } = useAuth();
@@ -135,6 +136,8 @@ function RoutesProtegees() {
           <Route path="*" element={<Navigate to="/mouvements" replace />} />
         </Routes>
       </main>
+
+      <MessagerieWidget />
     </div>
   );
 }

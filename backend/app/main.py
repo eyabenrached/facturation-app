@@ -9,6 +9,7 @@ from .security import hash_password
 from .routers import (
     chauffeurs, clients, agences, vehicules, circuits, mouvements, mouvements_location,
     factures, factures_location, auth, utilisateurs, dashboard, depenses, finances, parametres,
+    messagerie,
 )
 
 app = FastAPI(title="API Facturation Transport", version="1.0.0")
@@ -61,6 +62,32 @@ def migrer_colonnes_manquantes():
         ))
 
 
+def creer_canal_general():
+    """Crée le canal général de la messagerie interne s'il n'existe pas
+    encore, et y ajoute tout utilisateur actif qui n'en est pas déjà
+    membre (nouveaux comptes créés avant l'ajout de cette fonctionnalité,
+    par exemple)."""
+    db = SessionLocal()
+    try:
+        canal = db.query(models.Conversation).filter(models.Conversation.type == "generale").first()
+        if not canal:
+            canal = models.Conversation(type="generale", nom="Général")
+            db.add(canal)
+            db.flush()
+        ids_existants = {
+            m.utilisateur_id
+            for m in db.query(models.ConversationMembre)
+            .filter(models.ConversationMembre.conversation_id == canal.id)
+            .all()
+        }
+        for u in db.query(models.Utilisateur).all():
+            if u.id not in ids_existants:
+                db.add(models.ConversationMembre(conversation_id=canal.id, utilisateur_id=u.id))
+        db.commit()
+    finally:
+        db.close()
+
+
 @app.on_event("startup")
 def on_startup():
     # Pour démarrer rapidement en développement.
@@ -68,6 +95,7 @@ def on_startup():
     Base.metadata.create_all(bind=engine)
     migrer_colonnes_manquantes()
     creer_admin_par_defaut()
+    creer_canal_general()
 
 
 app.include_router(auth.router)
@@ -85,6 +113,7 @@ app.include_router(dashboard.router)
 app.include_router(depenses.router)
 app.include_router(finances.router)
 app.include_router(parametres.router)
+app.include_router(messagerie.router)
 
 
 @app.get("/")

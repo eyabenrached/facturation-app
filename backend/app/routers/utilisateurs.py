@@ -27,6 +27,13 @@ def creer_utilisateur(payload: schemas.UtilisateurCreate, db: Session = Depends(
     db.add(obj)
     db.commit()
     db.refresh(obj)
+
+    # Ajoute automatiquement le nouvel utilisateur au canal général de la messagerie.
+    canal = db.query(models.Conversation).filter(models.Conversation.type == "generale").first()
+    if canal:
+        db.add(models.ConversationMembre(conversation_id=canal.id, utilisateur_id=obj.id))
+        db.commit()
+
     return obj
 
 

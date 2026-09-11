@@ -279,6 +279,57 @@ class Depense(Base):
     transporteur: Mapped["Agence | None"] = relationship(foreign_keys=[transporteur_id])
 
 
+class Conversation(Base):
+    """Conversation de la messagerie interne : soit le canal général (type
+    'generale', unique, contenant tous les utilisateurs actifs), soit une
+    conversation privée à deux (type 'privee')."""
+
+    __tablename__ = "conversations"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    type: Mapped[str] = mapped_column(String(20), default="privee")
+    nom: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    date_creation: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    membres: Mapped[list["ConversationMembre"]] = relationship(
+        back_populates="conversation", cascade="all, delete-orphan"
+    )
+    messages: Mapped[list["Message"]] = relationship(
+        back_populates="conversation", cascade="all, delete-orphan"
+    )
+
+
+class ConversationMembre(Base):
+    """Appartenance d'un utilisateur à une conversation, avec la date de
+    dernière lecture (sert à calculer le nombre de messages non lus)."""
+
+    __tablename__ = "conversation_membres"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    conversation_id: Mapped[int] = mapped_column(ForeignKey("conversations.id"))
+    utilisateur_id: Mapped[int] = mapped_column(ForeignKey("utilisateurs.id"))
+    dernier_lu_a: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    date_ajout: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    conversation: Mapped["Conversation"] = relationship(back_populates="membres")
+    utilisateur: Mapped["Utilisateur"] = relationship()
+
+
+class Message(Base):
+    """Message envoyé dans une conversation de la messagerie interne."""
+
+    __tablename__ = "messages"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    conversation_id: Mapped[int] = mapped_column(ForeignKey("conversations.id"))
+    expediteur_id: Mapped[int] = mapped_column(ForeignKey("utilisateurs.id"))
+    contenu: Mapped[str] = mapped_column(Text)
+    date_envoi: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    conversation: Mapped["Conversation"] = relationship(back_populates="messages")
+    expediteur: Mapped["Utilisateur"] = relationship()
+
+
 class ParametresApp(Base):
     """Réglages globaux de l'application, valables pour tous les utilisateurs.
 
