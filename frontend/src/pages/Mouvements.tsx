@@ -63,10 +63,12 @@ export default function Mouvements() {
   // au besoin) ; le gestionnaire n'y a accès que si elle n'est pas bloquée.
   const selectionAutorisee = estAdmin || selectionActive;
   const prixAutoActif = parametres?.prix_automatique_actif ?? true;
-  // L'auto-remplissage du prix ne s'applique qu'au gestionnaire (l'admin saisit
-  // toujours le prix manuellement). Le bouton admin bloque/débloque cet
-  // auto-remplissage pour le gestionnaire.
+  // L'auto-remplissage du prix s'applique au gestionnaire (verrouillé, non
+  // modifiable) et à l'admin (pré-rempli mais toujours modifiable). Le bouton
+  // admin bloque/débloque cet auto-remplissage pour le gestionnaire uniquement ;
+  // l'admin reçoit toujours la suggestion.
   const prixAutoEffectif = !estAdmin && prixAutoActif;
+  const prixSuggestionActive = estAdmin || prixAutoActif;
 
   async function chargerParametres() {
     try {
@@ -184,7 +186,7 @@ export default function Mouvements() {
   // champs sont renseignés dans le formulaire.
   useEffect(() => {
     if (!modalMvtOuvert) return;
-    if (!prixAutoEffectif) return;
+    if (!prixSuggestionActive) return;
     if (!formMvt.client_id || !formMvt.circuit_id || !formMvt.heure) return;
 
     const params = new URLSearchParams();
@@ -206,7 +208,7 @@ export default function Mouvements() {
     return () => {
       annule = true;
     };
-  }, [modalMvtOuvert, prixAutoEffectif, formMvt.client_id, formMvt.circuit_id, formMvt.heure, formMvt.vehicule_id]);
+  }, [modalMvtOuvert, prixSuggestionActive, formMvt.client_id, formMvt.circuit_id, formMvt.heure, formMvt.vehicule_id]);
 
   // Tarifs spécifiques du client sélectionné dans le formulaire de mouvement,
   // pour filtrer les circuits proposés et afficher l'horaire/prix connus
@@ -605,10 +607,11 @@ export default function Mouvements() {
               {!estAdmin && prixAutoEffectif && (
                 <span style={{ fontWeight: 400, color: "#6b7280" }}>(rempli automatiquement — non modifiable)</span>
               )}
-              {!prixAutoEffectif && (
-                <span style={{ fontWeight: 400, color: "#6b7280" }}>
-                  (saisie manuelle{estAdmin ? " — admin" : " — tarifs auto bloqués"})
-                </span>
+              {estAdmin && (
+                <span style={{ fontWeight: 400, color: "#6b7280" }}>(rempli automatiquement — modifiable)</span>
+              )}
+              {!estAdmin && !prixAutoEffectif && (
+                <span style={{ fontWeight: 400, color: "#6b7280" }}>(saisie manuelle — tarifs auto bloqués)</span>
               )}
             </label>
             {!estAdmin && prixAutoEffectif && prixSuggere !== null ? (
@@ -625,6 +628,16 @@ export default function Mouvements() {
               >
                 {prixSuggere} TND
               </div>
+            ) : estAdmin ? (
+              // Admin : prix pré-rempli automatiquement dès que possible, mais toujours modifiable librement.
+              <input
+                type="number"
+                min={0}
+                step="0.001"
+                placeholder="Prix en TND"
+                value={prixSuggere !== null ? prixSuggere : ""}
+                onChange={(e) => setPrixSuggere(e.target.value ? Number(e.target.value) : null)}
+              />
             ) : (
               <select
                 value={prixSuggere !== null ? prixSuggere : ""}
