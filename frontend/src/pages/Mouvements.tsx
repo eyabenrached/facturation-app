@@ -54,6 +54,7 @@ export default function Mouvements() {
   const [selectionnes, setSelectionnes] = useState<Set<number>>(new Set());
   const [modalDateGroupeOuvert, setModalDateGroupeOuvert] = useState(false);
   const [nouvelleDateGroupe, setNouvelleDateGroupe] = useState("");
+  const [nouvelleHeureGroupe, setNouvelleHeureGroupe] = useState("");
   const [erreurDateGroupe, setErreurDateGroupe] = useState("");
 
   // Blocage global (admin) de la fonctionnalité de sélection groupée
@@ -326,6 +327,7 @@ export default function Mouvements() {
 
   function ouvrirModalDateGroupe() {
     setNouvelleDateGroupe("");
+    setNouvelleHeureGroupe("");
     setErreurDateGroupe("");
     setModalDateGroupeOuvert(true);
   }
@@ -340,6 +342,7 @@ export default function Mouvements() {
       await api.post("/mouvements/dupliquer-groupe", {
         ids: Array.from(selectionnes),
         nouvelle_date: nouvelleDateGroupe,
+        ...(nouvelleHeureGroupe ? { nouvelle_heure: nouvelleHeureGroupe } : {}),
       });
       setModalDateGroupeOuvert(false);
       setModeSelection(false);
@@ -669,7 +672,8 @@ export default function Mouvements() {
           {erreurDateGroupe && <p className="error-msg">{erreurDateGroupe}</p>}
           <p style={{ marginBottom: "0.75rem", color: "var(--text-muted, #666)" }}>
             Les mouvements sélectionnés seront conservés tels quels ; une copie de chacun sera créée
-            à la date choisie ci-dessous (non facturée).
+            à la date choisie ci-dessous (non facturée). Si vous ne renseignez pas d'heure, chaque copie
+            garde l'heure de son mouvement d'origine.
           </p>
           <div className="form-field" style={{ marginBottom: "1rem" }}>
             <label>Nouvelle date</label>
@@ -677,6 +681,14 @@ export default function Mouvements() {
               type="date"
               value={nouvelleDateGroupe}
               onChange={(e) => setNouvelleDateGroupe(e.target.value)}
+            />
+          </div>
+          <div className="form-field" style={{ marginBottom: "1rem" }}>
+            <label>Nouvelle heure (optionnel)</label>
+            <input
+              type="time"
+              value={nouvelleHeureGroupe}
+              onChange={(e) => setNouvelleHeureGroupe(e.target.value)}
             />
           </div>
           <div className="form-actions">
