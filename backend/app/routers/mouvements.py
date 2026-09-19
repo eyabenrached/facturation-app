@@ -119,10 +119,11 @@ def dupliquer_groupe(payload: schemas.MouvementsDupliquerGroupeIn, db: Session =
         # Le prix est récupéré depuis le tarif client reconnu au moment de la
         # duplication (et non recopié tel quel depuis le mouvement d'origine) :
         # si un tarif a changé entre-temps, la copie reflète le tarif à jour.
-        prix = calculer_prix(db, obj.client_id, obj.circuit_id, obj.heure, type_vehicule)
+        heure = payload.nouvelle_heure or obj.heure
+        prix = calculer_prix(db, obj.client_id, obj.circuit_id, heure, type_vehicule)
         nouveaux.append(models.Mouvement(
             date=payload.nouvelle_date,
-            heure=obj.heure,
+            heure=heure,
             client_id=obj.client_id,
             circuit_id=obj.circuit_id,
             chauffeur_id=obj.chauffeur_id,
