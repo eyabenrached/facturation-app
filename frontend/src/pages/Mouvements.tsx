@@ -19,6 +19,18 @@ const VIDE_MOUVEMENT = {
   nb_personnes: null as number | null,
 };
 
+// Le backend ne renvoie par défaut que les chauffeurs actifs (contrat en
+// cours). Si le mouvement affiché/édité était lié à un chauffeur depuis
+// désactivé (contrat terminé), on le rajoute quand même dans les options du
+// select — sinon le champ paraîtrait vide alors qu'un chauffeur lui est bien
+// rattaché — en le signalant comme désactivé.
+function optionsChauffeurs(chauffeurs: Chauffeur[], chauffeurActuel?: Chauffeur | null): Chauffeur[] {
+  if (chauffeurActuel && !chauffeurs.some((c) => c.id === chauffeurActuel.id)) {
+    return [...chauffeurs, chauffeurActuel];
+  }
+  return chauffeurs;
+}
+
 export default function Mouvements() {
   const { utilisateur } = useAuth();
   const estAdmin = utilisateur?.role === "administrateur";
@@ -54,6 +66,7 @@ export default function Mouvements() {
   const [selectionnes, setSelectionnes] = useState<Set<number>>(new Set());
   const [modalDateGroupeOuvert, setModalDateGroupeOuvert] = useState(false);
   const [nouvelleDateGroupe, setNouvelleDateGroupe] = useState("");
+  const [nouvelleHeureGroupe, setNouvelleHeureGroupe] = useState("");
   const [erreurDateGroupe, setErreurDateGroupe] = useState("");
 
   // Blocage global (admin) de la fonctionnalité de sélection groupée
@@ -63,10 +76,12 @@ export default function Mouvements() {
   // au besoin) ; le gestionnaire n'y a accès que si elle n'est pas bloquée.
   const selectionAutorisee = estAdmin || selectionActive;
   const prixAutoActif = parametres?.prix_automatique_actif ?? true;
-  // L'auto-remplissage du prix ne s'applique qu'au gestionnaire (l'admin saisit
-  // toujours le prix manuellement). Le bouton admin bloque/débloque cet
-  // auto-remplissage pour le gestionnaire.
+  // L'auto-remplissage du prix s'applique au gestionnaire (verrouillé, non
+  // modifiable) et à l'admin (pré-rempli mais toujours modifiable). Le bouton
+  // admin bloque/débloque cet auto-remplissage pour le gestionnaire uniquement ;
+  // l'admin reçoit toujours la suggestion.
   const prixAutoEffectif = !estAdmin && prixAutoActif;
+  const prixSuggestionActive = estAdmin || prixAutoActif;
 
   async function chargerParametres() {
     try {
@@ -184,7 +199,7 @@ export default function Mouvements() {
   // champs sont renseignés dans le formulaire.
   useEffect(() => {
     if (!modalMvtOuvert) return;
-    if (!prixAutoEffectif) return;
+    if (!prixSuggestionActive) return;
     if (!formMvt.client_id || !formMvt.circuit_id || !formMvt.heure) return;
 
     const params = new URLSearchParams();
@@ -206,7 +221,7 @@ export default function Mouvements() {
     return () => {
       annule = true;
     };
-  }, [modalMvtOuvert, prixAutoEffectif, formMvt.client_id, formMvt.circuit_id, formMvt.heure, formMvt.vehicule_id]);
+  }, [modalMvtOuvert, prixSuggestionActive, formMvt.client_id, formMvt.circuit_id, formMvt.heure, formMvt.vehicule_id]);
 
   // Tarifs spécifiques du client sélectionné dans le formulaire de mouvement,
   // pour filtrer les circuits proposés et afficher l'horaire/prix connus
@@ -324,6 +339,7 @@ export default function Mouvements() {
 
   function ouvrirModalDateGroupe() {
     setNouvelleDateGroupe("");
+    setNouvelleHeureGroupe("");
     setErreurDateGroupe("");
     setModalDateGroupeOuvert(true);
   }
@@ -338,6 +354,7 @@ export default function Mouvements() {
       await api.post("/mouvements/dupliquer-groupe", {
         ids: Array.from(selectionnes),
         nouvelle_date: nouvelleDateGroupe,
+        ...(nouvelleHeureGroupe ? { nouvelle_heure: nouvelleHeureGroupe } : {}),
       });
       setModalDateGroupeOuvert(false);
       setModeSelection(false);
@@ -575,7 +592,9 @@ export default function Mouvements() {
               <label>Chauffeur (optionnel)</label>
               <select value={formMvt.chauffeur_id || ""} onChange={(e) => majFormMvt({ chauffeur_id: e.target.value ? Number(e.target.value) : null })}>
                 <option value="">—</option>
-                {chauffeurs.map((c) => <option key={c.id} value={c.id}>{c.prenom} {c.nom}</option>)}
+                {optionsChauffeurs(chauffeurs, mouvementEnEdition?.chauffeur).map((c) => (
+                  <option key={c.id} value={c.id}>{c.prenom} {c.nom}{!c.actif ? " (désactivé)" : ""}</option>
+                ))}
               </select>
             </div>
             <div className="form-field">
@@ -605,10 +624,11 @@ export default function Mouvements() {
               {!estAdmin && prixAutoEffectif && (
                 <span style={{ fontWeight: 400, color: "#6b7280" }}>(rempli automatiquement — non modifiable)</span>
               )}
-              {!prixAutoEffectif && (
-                <span style={{ fontWeight: 400, color: "#6b7280" }}>
-                  (saisie manuelle{estAdmin ? " — admin" : " — tarifs auto bloqués"})
-                </span>
+              {estAdmin && (
+                <span style={{ fontWeight: 400, color: "#6b7280" }}>(rempli automatiquement — modifiable)</span>
+              )}
+              {!estAdmin && !prixAutoEffectif && (
+                <span style={{ fontWeight: 400, color: "#6b7280" }}>(saisie manuelle — tarifs auto bloqués)</span>
               )}
             </label>
             {!estAdmin && prixAutoEffectif && prixSuggere !== null ? (
@@ -625,6 +645,16 @@ export default function Mouvements() {
               >
                 {prixSuggere} TND
               </div>
+            ) : estAdmin ? (
+              // Admin : prix pré-rempli automatiquement dès que possible, mais toujours modifiable librement.
+              <input
+                type="number"
+                min={0}
+                step="0.001"
+                placeholder="Prix en TND"
+                value={prixSuggere !== null ? prixSuggere : ""}
+                onChange={(e) => setPrixSuggere(e.target.value ? Number(e.target.value) : null)}
+              />
             ) : (
               <select
                 value={prixSuggere !== null ? prixSuggere : ""}
@@ -656,7 +686,8 @@ export default function Mouvements() {
           {erreurDateGroupe && <p className="error-msg">{erreurDateGroupe}</p>}
           <p style={{ marginBottom: "0.75rem", color: "var(--text-muted, #666)" }}>
             Les mouvements sélectionnés seront conservés tels quels ; une copie de chacun sera créée
-            à la date choisie ci-dessous (non facturée).
+            à la date choisie ci-dessous (non facturée). Si vous ne renseignez pas d'heure, chaque copie
+            garde l'heure de son mouvement d'origine.
           </p>
           <div className="form-field" style={{ marginBottom: "1rem" }}>
             <label>Nouvelle date</label>
@@ -664,6 +695,14 @@ export default function Mouvements() {
               type="date"
               value={nouvelleDateGroupe}
               onChange={(e) => setNouvelleDateGroupe(e.target.value)}
+            />
+          </div>
+          <div className="form-field" style={{ marginBottom: "1rem" }}>
+            <label>Nouvelle heure (optionnel)</label>
+            <input
+              type="time"
+              value={nouvelleHeureGroupe}
+              onChange={(e) => setNouvelleHeureGroupe(e.target.value)}
             />
           </div>
           <div className="form-actions">

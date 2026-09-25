@@ -12,6 +12,7 @@ const VIDE: Omit<Chauffeur, "id"> = {
   telephone: "",
   date_embauche: "",
   date_fin_contrat: null,
+  actif: true,
 };
 
 export default function Chauffeurs() {
@@ -19,19 +20,22 @@ export default function Chauffeurs() {
   const estAdmin = utilisateur?.role === "administrateur";
   const [liste, setListe] = useState<Chauffeur[]>([]);
   const [recherche, setRecherche] = useState("");
+  const [afficherInactifs, setAfficherInactifs] = useState(false);
   const [modalOuvert, setModalOuvert] = useState(false);
   const [enEdition, setEnEdition] = useState<Chauffeur | null>(null);
   const [form, setForm] = useState(VIDE);
   const [erreur, setErreur] = useState("");
 
   async function charger() {
-    const params = recherche ? `?recherche=${encodeURIComponent(recherche)}` : "";
-    setListe(await api.get<Chauffeur[]>(`/chauffeurs/${params}`));
+    const params = new URLSearchParams();
+    if (recherche) params.set("recherche", recherche);
+    if (afficherInactifs) params.set("inclure_inactifs", "true");
+    setListe(await api.get<Chauffeur[]>(`/chauffeurs/?${params.toString()}`));
   }
 
   useEffect(() => {
     charger();
-  }, [recherche]);
+  }, [recherche, afficherInactifs]);
 
   function ouvrirAjout() {
     setEnEdition(null);
@@ -85,6 +89,14 @@ export default function Chauffeurs() {
           value={recherche}
           onChange={(e) => setRecherche(e.target.value)}
         />
+        <label style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontSize: "0.85rem" }}>
+          <input
+            type="checkbox"
+            checked={afficherInactifs}
+            onChange={(e) => setAfficherInactifs(e.target.checked)}
+          />
+          Afficher aussi les chauffeurs désactivés (contrat terminé)
+        </label>
       </div>
 
       <DataTable<Chauffeur>
@@ -96,6 +108,14 @@ export default function Chauffeurs() {
           { header: "Téléphone", render: (c) => c.telephone },
           { header: "Embauche", render: (c) => c.date_embauche },
           { header: "Fin contrat", render: (c) => c.date_fin_contrat || "—" },
+          {
+            header: "Statut",
+            render: (c) => (
+              <span style={{ color: c.actif ? "#16a34a" : "#dc2626", fontWeight: 600 }}>
+                {c.actif ? "Actif" : "Désactivé (contrat terminé)"}
+              </span>
+            ),
+          },
           {
             header: "Actions",
             render: (c) => estAdmin && (

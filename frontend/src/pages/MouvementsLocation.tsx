@@ -19,6 +19,16 @@ const VIDE_MOUVEMENT = {
   remarque: "" as string | null,
 };
 
+// Voir la même fonction dans Mouvements.tsx : le backend ne renvoie par
+// défaut que les chauffeurs actifs ; on rajoute celui déjà rattaché au
+// mouvement en édition même s'il a depuis été désactivé (contrat terminé).
+function optionsChauffeurs(chauffeurs: Chauffeur[], chauffeurActuel?: Chauffeur | null): Chauffeur[] {
+  if (chauffeurActuel && !chauffeurs.some((c) => c.id === chauffeurActuel.id)) {
+    return [...chauffeurs, chauffeurActuel];
+  }
+  return chauffeurs;
+}
+
 function badgeStatut(s: StatutFacture) {
   const label = s === "payee" ? "Payée" : s === "impayee" ? "Impayée" : "Partielle";
   return <span className={`badge ${s}`}>{label}</span>;
@@ -395,7 +405,9 @@ export default function MouvementsLocation() {
               <label>Chauffeur (optionnel)</label>
               <select value={form.chauffeur_id || ""} onChange={(e) => majForm({ chauffeur_id: e.target.value ? Number(e.target.value) : null })}>
                 <option value="">—</option>
-                {chauffeurs.map((c) => <option key={c.id} value={c.id}>{c.prenom} {c.nom}</option>)}
+                {optionsChauffeurs(chauffeurs, mouvementEnEdition?.chauffeur).map((c) => (
+                  <option key={c.id} value={c.id}>{c.prenom} {c.nom}{!c.actif ? " (désactivé)" : ""}</option>
+                ))}
               </select>
             </div>
             <div className="form-field">

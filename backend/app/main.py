@@ -60,6 +60,10 @@ def migrer_colonnes_manquantes():
             "ALTER TABLE parametres_app ADD COLUMN IF NOT EXISTS "
             "prix_automatique_actif BOOLEAN NOT NULL DEFAULT TRUE"
         ))
+        conn.execute(text(
+            "ALTER TABLE chauffeurs ADD COLUMN IF NOT EXISTS "
+            "actif BOOLEAN NOT NULL DEFAULT TRUE"
+        ))
 
 
 def creer_canal_general():
@@ -88,6 +92,17 @@ def creer_canal_general():
         db.close()
 
 
+def desactiver_chauffeurs_expires_au_demarrage():
+    """Au cas où l'app est restée éteinte le jour où un contrat a expiré :
+    on rattrape la désactivation dès le démarrage, sans attendre qu'un
+    utilisateur ouvre la page Chauffeurs."""
+    db = SessionLocal()
+    try:
+        chauffeurs.desactiver_chauffeurs_expires(db)
+    finally:
+        db.close()
+
+
 @app.on_event("startup")
 def on_startup():
     # Pour démarrer rapidement en développement.
@@ -96,6 +111,7 @@ def on_startup():
     migrer_colonnes_manquantes()
     creer_admin_par_defaut()
     creer_canal_general()
+    desactiver_chauffeurs_expires_au_demarrage()
 
 
 app.include_router(auth.router)

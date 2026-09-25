@@ -6,6 +6,7 @@ export interface Chauffeur {
   telephone: string;
   date_embauche: string;
   date_fin_contrat: string | null;
+  actif: boolean;
 }
 
 export interface Client {

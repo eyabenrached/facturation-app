@@ -8,6 +8,16 @@ const CATEGORIES: CategorieDepense[] = [
   "carburant", "entretien", "assurance", "salaire_chauffeur", "cnss", "taxe", "autre",
 ];
 
+// Voir la même fonction dans Mouvements.tsx : le backend ne renvoie par
+// défaut que les chauffeurs actifs ; on rajoute celui déjà rattaché à la
+// dépense en édition même s'il a depuis été désactivé (contrat terminé).
+function optionsChauffeurs(chauffeurs: Chauffeur[], chauffeurActuel?: Chauffeur | null): Chauffeur[] {
+  if (chauffeurActuel && !chauffeurs.some((c) => c.id === chauffeurActuel.id)) {
+    return [...chauffeurs, chauffeurActuel];
+  }
+  return chauffeurs;
+}
+
 const VIDE = {
   categorie: "carburant" as CategorieDepense,
   date: new Date().toISOString().slice(0, 10),
@@ -178,8 +188,8 @@ export default function Depenses() {
               onChange={(e) => setForm({ ...form, chauffeur_id: e.target.value ? Number(e.target.value) : null })}
             >
               <option value="">—</option>
-              {chauffeurs.map((c) => (
-                <option key={c.id} value={c.id}>{c.prenom} {c.nom}</option>
+              {optionsChauffeurs(chauffeurs, enEdition?.chauffeur).map((c) => (
+                <option key={c.id} value={c.id}>{c.prenom} {c.nom}{!c.actif ? " (désactivé)" : ""}</option>
               ))}
             </select>
           </div>

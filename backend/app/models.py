@@ -63,6 +63,12 @@ class Chauffeur(Base):
     telephone: Mapped[str] = mapped_column(String(30))
     date_embauche: Mapped[date] = mapped_column(Date)
     date_fin_contrat: Mapped[date | None] = mapped_column(Date, nullable=True)
+    # Désactivé automatiquement (jamais supprimé physiquement) dès que
+    # date_fin_contrat est dépassée : voir desactiver_chauffeurs_expires()
+    # dans routers/chauffeurs.py. Un chauffeur inactif disparaît des listes
+    # de sélection pour les nouveaux mouvements/dépenses mais reste visible,
+    # avec son nom, sur tous les mouvements passés qui lui sont liés.
+    actif: Mapped[bool] = mapped_column(default=True)
 
     mouvements: Mapped[list["Mouvement"]] = relationship(back_populates="chauffeur")
     depenses: Mapped[list["Depense"]] = relationship(back_populates="chauffeur")

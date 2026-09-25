@@ -85,6 +85,7 @@ class ChauffeurCreate(ChauffeurBase):
 class ChauffeurOut(ChauffeurBase):
     model_config = ConfigDict(from_attributes=True)
     id: int
+    actif: bool = True
 
 
 # ---------- Clients ----------
@@ -218,6 +219,9 @@ class MouvementsDupliquerGroupeIn(BaseModel):
     """Duplication groupée à une nouvelle date pour une sélection de mouvements (à refaire)."""
     ids: list[int]
     nouvelle_date: date
+    # Optionnelle : si fournie, remplace l'heure de toutes les copies ;
+    # sinon chaque copie garde l'heure du mouvement d'origine.
+    nouvelle_heure: time | None = None
 
 
 # ---------- Mouvements Location (indépendants de la facturation) ----------
