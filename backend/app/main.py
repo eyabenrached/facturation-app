@@ -9,7 +9,7 @@ from .security import hash_password
 from .routers import (
     chauffeurs, clients, agences, vehicules, circuits, mouvements, mouvements_location,
     factures, factures_location, auth, utilisateurs, dashboard, depenses, finances, parametres,
-    messagerie,
+    messagerie, hotels, dossiers_hotels,
 )
 
 app = FastAPI(title="API Facturation Transport", version="1.0.0")
@@ -130,6 +130,8 @@ app.include_router(depenses.router)
 app.include_router(finances.router)
 app.include_router(parametres.router)
 app.include_router(messagerie.router)
+app.include_router(hotels.router)
+app.include_router(dossiers_hotels.router)
 
 
 @app.get("/")

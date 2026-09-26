@@ -1,6 +1,9 @@
 from datetime import date, time, datetime
 from pydantic import BaseModel, EmailStr, ConfigDict
-from .models import StatutFacture, RoleUtilisateur, TypeVehicule, CategorieDepense
+from .models import (
+    StatutFacture, RoleUtilisateur, TypeVehicule, CategorieDepense,
+    EtatReservation, TypePension,
+)
 
 
 # ---------- Authentification / Utilisateurs ----------
@@ -378,3 +381,98 @@ class DepenseOut(DepenseBase):
     vehicule: VehiculeOut | None = None
     chauffeur: ChauffeurOut | None = None
     transporteur: AgenceOut | None = None
+
+
+# ================================================================
+# Module Réservations Hôtels
+# ================================================================
+
+class HotelBase(BaseModel):
+    nom: str
+    ville: str
+    pays: str
+    categorie_etoiles: int | None = None
+    adresse: str | None = None
+    telephone: str | None = None
+    email: str | None = None
+    contact_reservation: str | None = None
+    observations: str | None = None
+    actif: bool = True
+
+
+class HotelCreate(HotelBase):
+    pass
+
+
+class HotelOut(HotelBase):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+
+
+class ReservationHotelCreate(BaseModel):
+    hotel_id: int
+    date_arrivee: date
+    date_depart: date
+    nb_personnes: int | None = None
+    nb_chambres: int | None = None
+    chambres_single: int = 0
+    chambres_double: int = 0
+    chambres_twin: int = 0
+    chambres_triple: int = 0
+    type_pension: TypePension | None = None
+    etat: EtatReservation = EtatReservation.en_attente
+    hotel_remplacement_id: int | None = None
+    observations: str | None = None
+
+
+class ReservationHotelOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    dossier_id: int
+    hotel_id: int
+    date_arrivee: date
+    date_depart: date
+    nb_nuits: int
+    nb_personnes: int | None
+    nb_chambres: int | None
+    chambres_single: int
+    chambres_double: int
+    chambres_twin: int
+    chambres_triple: int
+    type_pension: TypePension | None
+    etat: EtatReservation
+    hotel_remplacement_id: int | None
+    observations: str | None
+    hotel: HotelOut | None = None
+    hotel_remplacement: HotelOut | None = None
+
+
+class DossierHotelCreate(BaseModel):
+    agence_id: int | None = None
+    circuit_id: int | None = None
+    date_arrivee: date | None = None
+    heure_arrivee: time | None = None
+    numero_vol_arrivee: str | None = None
+    compagnie_arrivee: str | None = None
+    date_depart: date | None = None
+    heure_depart: time | None = None
+    numero_vol_depart: str | None = None
+    compagnie_depart: str | None = None
+    nb_personnes: int | None = None
+    nb_chambres: int | None = None
+    observations: str | None = None
+
+
+class DossierHotelOut(DossierHotelCreate):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    numero_dossier: str
+    date_creation: datetime
+    statut_global: str
+    agence: AgenceOut | None = None
+    circuit: CircuitOut | None = None
+    reservations: list[ReservationHotelOut] = []
+
+
+class NextNumeroDossierOut(BaseModel):
+    numero_suggere: str
