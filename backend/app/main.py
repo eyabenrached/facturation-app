@@ -64,6 +64,17 @@ def migrer_colonnes_manquantes():
             "ALTER TABLE chauffeurs ADD COLUMN IF NOT EXISTS "
             "actif BOOLEAN NOT NULL DEFAULT TRUE"
         ))
+        # Dossiers hôtels : agence et circuit en saisie libre (texte).
+        conn.execute(text("ALTER TABLE dossiers_hotels ADD COLUMN IF NOT EXISTS agence_nom VARCHAR(150)"))
+        conn.execute(text("ALTER TABLE dossiers_hotels ADD COLUMN IF NOT EXISTS circuit_nom VARCHAR(200)"))
+        conn.execute(text(
+            "UPDATE dossiers_hotels d SET agence_nom = a.nom_agence FROM agences a "
+            "WHERE d.agence_id = a.id AND d.agence_nom IS NULL"
+        ))
+        conn.execute(text(
+            "UPDATE dossiers_hotels d SET circuit_nom = c.point_depart || ' - ' || c.point_arrivee "
+            "FROM circuits c WHERE d.circuit_id = c.id AND d.circuit_nom IS NULL"
+        ))
 
 
 def creer_canal_general():

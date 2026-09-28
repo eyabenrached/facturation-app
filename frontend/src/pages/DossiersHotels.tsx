@@ -4,8 +4,6 @@ import { api } from "../api";
 import {
   DossierHotel,
   DossierHotelPayload,
-  Agence,
-  Circuit,
   LABELS_STATUT_DOSSIER_HOTEL,
   StatutDossierHotel,
 } from "../types";
@@ -16,8 +14,8 @@ import { useAuth } from "../auth/AuthContext";
 const STATUTS: StatutDossierHotel[] = ["en_cours", "confirme", "cloture", "annule"];
 
 const VIDE: DossierHotelPayload = {
-  agence_id: null,
-  circuit_id: null,
+  agence_nom: "",
+  circuit_nom: "",
   date_arrivee: null,
   heure_arrivee: null,
   numero_vol_arrivee: "",
@@ -42,6 +40,8 @@ function nettoyer(form: DossierHotelPayload): DossierHotelPayload {
   const v = (x: string | null) => (x && x.trim() ? x : null);
   return {
     ...form,
+    agence_nom: v(form.agence_nom),
+    circuit_nom: v(form.circuit_nom),
     date_arrivee: v(form.date_arrivee),
     heure_arrivee: v(form.heure_arrivee),
     numero_vol_arrivee: v(form.numero_vol_arrivee),
@@ -59,11 +59,8 @@ export default function DossiersHotels() {
   const estAdmin = utilisateur?.role === "administrateur";
   const navigate = useNavigate();
   const [liste, setListe] = useState<DossierHotel[]>([]);
-  const [agences, setAgences] = useState<Agence[]>([]);
-  const [circuits, setCircuits] = useState<Circuit[]>([]);
   const [recherche, setRecherche] = useState("");
   const [filtreStatut, setFiltreStatut] = useState("");
-  const [filtreAgence, setFiltreAgence] = useState("");
   const [modalOuvert, setModalOuvert] = useState(false);
   const [form, setForm] = useState<DossierHotelPayload>(VIDE);
   const [numeroSuggere, setNumeroSuggere] = useState("");
@@ -72,19 +69,13 @@ export default function DossiersHotels() {
   async function charger() {
     const params = new URLSearchParams();
     if (filtreStatut) params.set("statut", filtreStatut);
-    if (filtreAgence) params.set("agence_id", filtreAgence);
     setListe(await api.get<DossierHotel[]>(`/dossiers-hotels/?${params.toString()}`));
   }
 
   useEffect(() => {
-    api.get<Agence[]>("/agences/").then(setAgences);
-    api.get<Circuit[]>("/circuits/").then(setCircuits);
-  }, []);
-
-  useEffect(() => {
     charger();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtreStatut, filtreAgence]);
+  }, [filtreStatut]);
 
   const listeFiltree = useMemo(() => {
     const t = recherche.trim().toLowerCase();
@@ -92,13 +83,10 @@ export default function DossiersHotels() {
     return liste.filter(
       (d) =>
         d.numero_dossier.toLowerCase().includes(t) ||
-        (d.agence?.nom_agence || "").toLowerCase().includes(t)
+        (d.agence_nom || "").toLowerCase().includes(t) ||
+        (d.circuit_nom || "").toLowerCase().includes(t)
     );
   }, [liste, recherche]);
-
-  function circuitLabel(d: DossierHotel) {
-    return d.circuit ? `${d.circuit.point_depart} → ${d.circuit.point_arrivee}` : "—";
-  }
 
   async function ouvrirAjout() {
     setForm(VIDE);
@@ -115,8 +103,8 @@ export default function DossiersHotels() {
 
   async function enregistrer() {
     setErreur("");
-    if (!form.agence_id) {
-      setErreur("Merci de sélectionner une agence.");
+    if (!form.agence_nom || !form.agence_nom.trim()) {
+      setErreur("Merci de saisir le nom de l'agence.");
       return;
     }
     if (form.date_arrivee && form.date_depart && form.date_depart <= form.date_arrivee) {
@@ -154,17 +142,11 @@ export default function DossiersHotels() {
       <div className="toolbar">
         <input
           type="search"
-          placeholder="Recherche n° dossier / agence"
+          placeholder="Recherche n° dossier / agence / circuit"
           value={recherche}
           onChange={(e) => setRecherche(e.target.value)}
           style={{ flex: 1, minWidth: "200px" }}
         />
-        <select value={filtreAgence} onChange={(e) => setFiltreAgence(e.target.value)}>
-          <option value="">Toutes les agences</option>
-          {agences.map((a) => (
-            <option key={a.id} value={a.id}>{a.nom_agence}</option>
-          ))}
-        </select>
         <select value={filtreStatut} onChange={(e) => setFiltreStatut(e.target.value)}>
           <option value="">Tous les statuts</option>
           {STATUTS.map((s) => (
@@ -177,8 +159,8 @@ export default function DossiersHotels() {
         rows={listeFiltree}
         columns={[
           { header: "N° dossier", render: (d) => <Link to={`/dossiers-hotels/${d.id}`}>{d.numero_dossier}</Link> },
-          { header: "Agence", render: (d) => d.agence?.nom_agence || "—" },
-          { header: "Circuit", render: (d) => circuitLabel(d) },
+          { header: "Agence", render: (d) => d.agence_nom || "—" },
+          { header: "Circuit", render: (d) => d.circuit_nom || "—" },
           { header: "Arrivée", render: (d) => d.date_arrivee || "—" },
           { header: "Départ", render: (d) => d.date_depart || "—" },
           { header: "Pers.", render: (d) => d.nb_personnes ?? "—" },
@@ -206,21 +188,19 @@ export default function DossiersHotels() {
             </div>
             <div className="form-field">
               <label>Agence</label>
-              <select value={form.agence_id || ""} onChange={(e) => maj({ agence_id: e.target.value ? Number(e.target.value) : null })}>
-                <option value="">— Sélectionner —</option>
-                {agences.map((a) => (
-                  <option key={a.id} value={a.id}>{a.nom_agence}</option>
-                ))}
-              </select>
+              <input
+                value={form.agence_nom || ""}
+                placeholder="Nom de l'agence"
+                onChange={(e) => maj({ agence_nom: e.target.value })}
+              />
             </div>
             <div className="form-field">
               <label>Circuit (optionnel)</label>
-              <select value={form.circuit_id || ""} onChange={(e) => maj({ circuit_id: e.target.value ? Number(e.target.value) : null })}>
-                <option value="">— Aucun —</option>
-                {circuits.map((c) => (
-                  <option key={c.id} value={c.id}>{c.point_depart} → {c.point_arrivee}</option>
-                ))}
-              </select>
+              <input
+                value={form.circuit_nom || ""}
+                placeholder="Ex : Tunis - Douz"
+                onChange={(e) => maj({ circuit_nom: e.target.value })}
+              />
             </div>
             <div className="form-field">
               <label>Nombre de personnes</label>

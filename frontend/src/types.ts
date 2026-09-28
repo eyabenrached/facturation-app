@@ -388,8 +388,8 @@ export interface ReservationHotelPayload {
 export interface DossierHotel {
   id: number;
   numero_dossier: string;
-  agence_id: number | null;
-  circuit_id: number | null;
+  agence_nom: string | null;
+  circuit_nom: string | null;
   date_arrivee: string | null;
   heure_arrivee: string | null;
   numero_vol_arrivee: string | null;
@@ -403,16 +403,14 @@ export interface DossierHotel {
   observations: string | null;
   date_creation: string;
   statut_global: string;
-  agence?: Agence | null;
-  circuit?: Circuit | null;
   reservations: ReservationHotel[];
 }
 
 // Payload accepté par POST/PUT /dossiers-hotels/ (pas de numero_dossier : auto-généré,
 // pas de statut : calculé).
 export interface DossierHotelPayload {
-  agence_id: number | null;
-  circuit_id: number | null;
+  agence_nom: string | null;
+  circuit_nom: string | null;
   date_arrivee: string | null;
   heure_arrivee: string | null;
   numero_vol_arrivee: string | null;

@@ -448,8 +448,8 @@ class ReservationHotelOut(BaseModel):
 
 
 class DossierHotelCreate(BaseModel):
-    agence_id: int | None = None
-    circuit_id: int | None = None
+    agence_nom: str | None = None
+    circuit_nom: str | None = None
     date_arrivee: date | None = None
     heure_arrivee: time | None = None
     numero_vol_arrivee: str | None = None
@@ -469,8 +469,6 @@ class DossierHotelOut(DossierHotelCreate):
     numero_dossier: str
     date_creation: datetime
     statut_global: str
-    agence: AgenceOut | None = None
-    circuit: CircuitOut | None = None
     reservations: list[ReservationHotelOut] = []
 
 

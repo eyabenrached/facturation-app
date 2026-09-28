@@ -290,8 +290,8 @@ def _carte_infos_generales(dossier, styles, largeur):
         return [Paragraph(label, styles["info_label"]), Paragraph(_safe(valeur), styles["info_value"])]
 
     rows = [
-        ligne("Agence :", dossier.agence.nom_agence if dossier.agence else None),
-        ligne("Circuit :", f"{dossier.circuit.point_depart} - {dossier.circuit.point_arrivee}" if dossier.circuit else None),
+        ligne("Agence :", dossier.agence_nom),
+        ligne("Circuit :", dossier.circuit_nom),
         ligne("Nombre de personnes :", dossier.nb_personnes),
         ligne("Nombre de chambres :", dossier.nb_chambres),
         ligne("Durée du séjour :", _duree_sejour(dossier)),

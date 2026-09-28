@@ -401,8 +401,12 @@ class DossierHotel(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     numero_dossier: Mapped[str] = mapped_column(String(50), unique=True, index=True)
-    agence_id: Mapped[int | None] = mapped_column(ForeignKey("agences.id"), nullable=True)
-    circuit_id: Mapped[int | None] = mapped_column(ForeignKey("circuits.id"), nullable=True)
+    # Agence et circuit sont saisis à la main (texte libre) : ils ne sont plus
+    # liés aux tables agences / circuits. Les anciennes colonnes agence_id et
+    # circuit_id restent en base pour les dossiers existants (recopiés dans
+    # agence_nom / circuit_nom à la migration) mais ne sont plus utilisées.
+    agence_nom: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    circuit_nom: Mapped[str | None] = mapped_column(String(200), nullable=True)
     date_arrivee: Mapped[date | None] = mapped_column(Date, nullable=True)
     heure_arrivee: Mapped[time | None] = mapped_column(Time, nullable=True)
     numero_vol_arrivee: Mapped[str | None] = mapped_column(String(30), nullable=True)
@@ -416,8 +420,6 @@ class DossierHotel(Base):
     observations: Mapped[str | None] = mapped_column(Text, nullable=True)
     date_creation: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
-    agence: Mapped["Agence | None"] = relationship(foreign_keys=[agence_id])
-    circuit: Mapped["Circuit | None"] = relationship(foreign_keys=[circuit_id])
     reservations: Mapped[list["ReservationHotel"]] = relationship(
         back_populates="dossier", cascade="all, delete-orphan", order_by="ReservationHotel.date_arrivee"
     )

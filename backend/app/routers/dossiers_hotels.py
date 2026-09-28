@@ -7,15 +7,13 @@ from sqlalchemy.orm import Session, joinedload, selectinload
 from .. import models, schemas
 from ..database import get_db
 from ..deps import exiger_admin, exiger_utilisateur_connecte, get_current_user
-from ..pdf_hotels import generer_dossier_hotel_pdf
+from ..pdf_hotels import LABELS_ETAT, generer_dossier_hotel_pdf
 
 router = APIRouter(prefix="/dossiers-hotels", tags=["Dossiers hôtels"])
 
 
 def _options_chargement():
     return (
-        joinedload(models.DossierHotel.agence),
-        joinedload(models.DossierHotel.circuit),
         joinedload(models.DossierHotel.reservations).joinedload(models.ReservationHotel.hotel),
         joinedload(models.DossierHotel.reservations).joinedload(models.ReservationHotel.hotel_remplacement),
         selectinload(models.DossierHotel.historique).joinedload(models.HistoriqueDossierHotel.utilisateur),
@@ -26,10 +24,18 @@ def _journaliser(db: Session, dossier_id: int, action: str, details: str | None,
     """Ajoute une ligne au journal du dossier (commit fait par l'appelant)."""
     db.add(models.HistoriqueDossierHotel(
         dossier_id=dossier_id,
-        action=action,
+        action=action[:100],
         details=details,
         utilisateur_id=getattr(user, "id", None),
     ))
+
+
+def _nettoyer_textes(donnees: dict) -> dict:
+    """Agence / circuit saisis à la main : espaces retirés, vide → None."""
+    for cle in ("agence_nom", "circuit_nom"):
+        v = donnees.get(cle)
+        donnees[cle] = v.strip() if isinstance(v, str) and v.strip() else None
+    return donnees
 
 
 def _suggerer_numero(db: Session) -> str:
@@ -63,13 +69,13 @@ def next_numero(db: Session = Depends(get_db)):
 
 @router.get("/", response_model=list[schemas.DossierHotelOut], dependencies=[Depends(exiger_utilisateur_connecte)])
 def liste_dossiers(
-    agence_id: int | None = None,
+    agence: str | None = None,
     statut: str | None = None,
     db: Session = Depends(get_db),
 ):
     q = db.query(models.DossierHotel).options(*_options_chargement())
-    if agence_id:
-        q = q.filter(models.DossierHotel.agence_id == agence_id)
+    if agence and agence.strip():
+        q = q.filter(models.DossierHotel.agence_nom.ilike(f"%{agence.strip()}%"))
     dossiers = q.order_by(models.DossierHotel.date_creation.desc()).all()
     # Le statut global est calculé en Python (propriété du modèle) : le
     # filtre ne peut donc pas se faire en SQL, on filtre après coup.
@@ -85,12 +91,11 @@ def obtenir_dossier(dossier_id: int, db: Session = Depends(get_db)):
 
 @router.post("/", response_model=schemas.DossierHotelOut, status_code=201, dependencies=[Depends(exiger_utilisateur_connecte)])
 def creer_dossier(payload: schemas.DossierHotelCreate, db: Session = Depends(get_db), user=Depends(get_current_user)):
-    if payload.agence_id and not db.query(models.Agence).get(payload.agence_id):
-        raise HTTPException(400, "Agence introuvable.")
-    if payload.circuit_id and not db.query(models.Circuit).get(payload.circuit_id):
-        raise HTTPException(400, "Circuit introuvable.")
+    donnees = _nettoyer_textes(payload.model_dump())
+    if not donnees.get("agence_nom"):
+        raise HTTPException(400, "Merci de saisir le nom de l'agence.")
 
-    obj = models.DossierHotel(numero_dossier=_suggerer_numero(db), **payload.model_dump())
+    obj = models.DossierHotel(numero_dossier=_suggerer_numero(db), **donnees)
     db.add(obj)
     db.flush()
     _journaliser(db, obj.id, "Création du dossier", obj.numero_dossier, user)
@@ -104,7 +109,10 @@ def modifier_dossier(dossier_id: int, payload: schemas.DossierHotelCreate, db: S
     obj = db.query(models.DossierHotel).get(dossier_id)
     if not obj:
         raise HTTPException(404, "Dossier hôtelier introuvable.")
-    for k, v in payload.model_dump().items():
+    donnees = _nettoyer_textes(payload.model_dump())
+    if not donnees.get("agence_nom"):
+        raise HTTPException(400, "Merci de saisir le nom de l'agence.")
+    for k, v in donnees.items():
         setattr(obj, k, v)
     _journaliser(db, dossier_id, "Modification du dossier", None, user)
     db.commit()
@@ -152,7 +160,7 @@ def ajouter_reservation(dossier_id: int, payload: schemas.ReservationHotelCreate
     obj = models.ReservationHotel(dossier_id=dossier_id, **payload.model_dump())
     db.add(obj)
     hotel = db.query(models.Hotel).get(payload.hotel_id)
-    _journaliser(db, dossier_id, "Réservation ajoutée", hotel.nom if hotel else None, user)
+    _journaliser(db, dossier_id, f"Ajout de {hotel.nom}" if hotel else "Ajout d'une réservation", None, user)
     db.commit()
     return _get_dossier_ou_404(dossier_id, db)
 
@@ -175,10 +183,19 @@ def modifier_reservation(
         raise HTTPException(404, "Réservation introuvable pour ce dossier.")
     if payload.date_depart <= payload.date_arrivee:
         raise HTTPException(400, "La date de départ doit être postérieure à la date d'arrivée.")
+    ancien_etat = getattr(obj.etat, "value", obj.etat)
+    ancien_remplacement = obj.hotel_remplacement_id
     for k, v in payload.model_dump().items():
         setattr(obj, k, v)
-    etat = getattr(payload.etat, "value", payload.etat)
-    _journaliser(db, dossier_id, "Réservation modifiée", f"Réservation n°{reservation_id} — état : {etat}", user)
+    nom = obj.hotel.nom if obj.hotel else f"réservation n°{reservation_id}"
+    nouvel_etat = getattr(payload.etat, "value", payload.etat)
+    modifs = []
+    if nouvel_etat != ancien_etat:
+        modifs.append(f"Changement statut {nom} : {LABELS_ETAT.get(nouvel_etat, nouvel_etat)}")
+    if payload.hotel_remplacement_id != ancien_remplacement:
+        modifs.append(f"Modification hôtel remplacement ({nom})")
+    for texte in modifs or [f"Modification de {nom}"]:
+        _journaliser(db, dossier_id, texte, None, user)
     db.commit()
     return _get_dossier_ou_404(dossier_id, db)
 
@@ -196,7 +213,8 @@ def supprimer_reservation(dossier_id: int, reservation_id: int, db: Session = De
     )
     if not obj:
         raise HTTPException(404, "Réservation introuvable pour ce dossier.")
+    nom = obj.hotel.nom if obj.hotel else f"réservation n°{reservation_id}"
     db.delete(obj)
-    _journaliser(db, dossier_id, "Réservation supprimée", f"Réservation n°{reservation_id}", user)
+    _journaliser(db, dossier_id, f"Suppression de {nom}", None, user)
     db.commit()
     return _get_dossier_ou_404(dossier_id, db)

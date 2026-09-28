@@ -9,8 +9,6 @@ import {
   ReservationHotel,
   ReservationHotelPayload,
   Hotel,
-  Agence,
-  Circuit,
   EtatReservation,
   LABELS_ETAT_RESERVATION,
   TypePension,
@@ -55,8 +53,8 @@ function nbNuits(arrivee: string, depart: string) {
 
 function versPayloadDossier(d: DossierHotel): DossierHotelPayload {
   return {
-    agence_id: d.agence_id,
-    circuit_id: d.circuit_id,
+    agence_nom: d.agence_nom,
+    circuit_nom: d.circuit_nom,
     date_arrivee: d.date_arrivee,
     heure_arrivee: d.heure_arrivee ? d.heure_arrivee.slice(0, 5) : null,
     numero_vol_arrivee: d.numero_vol_arrivee,
@@ -75,8 +73,6 @@ export default function FicheDossierHotel() {
   const { id } = useParams<{ id: string }>();
   const [dossier, setDossier] = useState<DossierHotel | null>(null);
   const [hotels, setHotels] = useState<Hotel[]>([]);
-  const [agences, setAgences] = useState<Agence[]>([]);
-  const [circuits, setCircuits] = useState<Circuit[]>([]);
   const [chargement, setChargement] = useState(true);
   const [erreur, setErreur] = useState("");
 
@@ -107,8 +103,6 @@ export default function FicheDossierHotel() {
   useEffect(() => {
     charger();
     api.get<Hotel[]>("/hotels/").then(setHotels);
-    api.get<Agence[]>("/agences/").then(setAgences);
-    api.get<Circuit[]>("/circuits/").then(setCircuits);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
@@ -264,9 +258,9 @@ export default function FicheDossierHotel() {
       <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", marginBottom: "1.5rem" }}>
         <div className="card" style={{ flex: "1 1 260px", minWidth: "260px" }}>
           <p style={{ margin: 0, fontSize: "0.8rem", color: "#6b7280", fontWeight: 600 }}>Informations générales</p>
-          <p style={{ margin: "0.5rem 0 0" }}><strong>Agence :</strong> {dossier.agence?.nom_agence || "—"}</p>
+          <p style={{ margin: "0.5rem 0 0" }}><strong>Agence :</strong> {dossier.agence_nom || "—"}</p>
           <p style={{ margin: "0.3rem 0 0" }}>
-            <strong>Circuit :</strong> {dossier.circuit ? `${dossier.circuit.point_depart} → ${dossier.circuit.point_arrivee}` : "—"}
+            <strong>Circuit :</strong> {dossier.circuit_nom || "—"}
           </p>
           <p style={{ margin: "0.3rem 0 0" }}>
             <strong>Personnes :</strong> {dossier.nb_personnes ?? "—"} · <strong>Chambres :</strong> {dossier.nb_chambres ?? "—"}
@@ -447,21 +441,19 @@ export default function FicheDossierHotel() {
           <div className="form-grid">
             <div className="form-field">
               <label>Agence</label>
-              <select value={formDossier.agence_id || ""} onChange={(e) => majD({ agence_id: e.target.value ? Number(e.target.value) : null })}>
-                <option value="">— Sélectionner —</option>
-                {agences.map((a) => (
-                  <option key={a.id} value={a.id}>{a.nom_agence}</option>
-                ))}
-              </select>
+              <input
+                value={formDossier.agence_nom || ""}
+                placeholder="Nom de l'agence"
+                onChange={(e) => majD({ agence_nom: e.target.value })}
+              />
             </div>
             <div className="form-field">
               <label>Circuit</label>
-              <select value={formDossier.circuit_id || ""} onChange={(e) => majD({ circuit_id: e.target.value ? Number(e.target.value) : null })}>
-                <option value="">— Aucun —</option>
-                {circuits.map((c) => (
-                  <option key={c.id} value={c.id}>{c.point_depart} → {c.point_arrivee}</option>
-                ))}
-              </select>
+              <input
+                value={formDossier.circuit_nom || ""}
+                placeholder="Ex : Tunis - Douz"
+                onChange={(e) => majD({ circuit_nom: e.target.value })}
+              />
             </div>
 
             <div className="form-field">
