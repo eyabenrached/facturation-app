@@ -421,6 +421,11 @@ class DossierHotel(Base):
     reservations: Mapped[list["ReservationHotel"]] = relationship(
         back_populates="dossier", cascade="all, delete-orphan", order_by="ReservationHotel.date_arrivee"
     )
+    historique: Mapped[list["HistoriqueDossierHotel"]] = relationship(
+        back_populates="dossier",
+        cascade="all, delete-orphan",
+        order_by="HistoriqueDossierHotel.date_action",
+    )
 
     @property
     def statut_global(self) -> str:
@@ -479,3 +484,24 @@ class ReservationHotel(Base):
             return 0
         delta = (self.date_depart - self.date_arrivee).days
         return delta if delta > 0 else 0
+
+
+class HistoriqueDossierHotel(Base):
+    """Journal des actions effectuées sur un dossier hôtelier (création,
+    modification, ajout/modification/suppression d'une réservation)."""
+
+    __tablename__ = "historique_dossiers_hotels"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    dossier_id: Mapped[int] = mapped_column(
+        ForeignKey("dossiers_hotels.id", ondelete="CASCADE"), index=True
+    )
+    date_action: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    action: Mapped[str] = mapped_column(String(100))
+    details: Mapped[str | None] = mapped_column(Text, nullable=True)
+    utilisateur_id: Mapped[int | None] = mapped_column(
+        ForeignKey("utilisateurs.id", ondelete="SET NULL"), nullable=True
+    )
+
+    dossier: Mapped["DossierHotel"] = relationship(back_populates="historique")
+    utilisateur: Mapped["Utilisateur | None"] = relationship(foreign_keys=[utilisateur_id])

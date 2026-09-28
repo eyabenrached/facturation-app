@@ -2,11 +2,11 @@ from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, selectinload
 
 from .. import models, schemas
 from ..database import get_db
-from ..deps import exiger_admin, exiger_utilisateur_connecte
+from ..deps import exiger_admin, exiger_utilisateur_connecte, get_current_user
 from ..pdf_hotels import generer_dossier_hotel_pdf
 
 router = APIRouter(prefix="/dossiers-hotels", tags=["Dossiers hôtels"])
@@ -18,7 +18,18 @@ def _options_chargement():
         joinedload(models.DossierHotel.circuit),
         joinedload(models.DossierHotel.reservations).joinedload(models.ReservationHotel.hotel),
         joinedload(models.DossierHotel.reservations).joinedload(models.ReservationHotel.hotel_remplacement),
+        selectinload(models.DossierHotel.historique).joinedload(models.HistoriqueDossierHotel.utilisateur),
     )
+
+
+def _journaliser(db: Session, dossier_id: int, action: str, details: str | None, user) -> None:
+    """Ajoute une ligne au journal du dossier (commit fait par l'appelant)."""
+    db.add(models.HistoriqueDossierHotel(
+        dossier_id=dossier_id,
+        action=action,
+        details=details,
+        utilisateur_id=getattr(user, "id", None),
+    ))
 
 
 def _suggerer_numero(db: Session) -> str:
@@ -73,7 +84,7 @@ def obtenir_dossier(dossier_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/", response_model=schemas.DossierHotelOut, status_code=201, dependencies=[Depends(exiger_utilisateur_connecte)])
-def creer_dossier(payload: schemas.DossierHotelCreate, db: Session = Depends(get_db)):
+def creer_dossier(payload: schemas.DossierHotelCreate, db: Session = Depends(get_db), user=Depends(get_current_user)):
     if payload.agence_id and not db.query(models.Agence).get(payload.agence_id):
         raise HTTPException(400, "Agence introuvable.")
     if payload.circuit_id and not db.query(models.Circuit).get(payload.circuit_id):
@@ -81,18 +92,21 @@ def creer_dossier(payload: schemas.DossierHotelCreate, db: Session = Depends(get
 
     obj = models.DossierHotel(numero_dossier=_suggerer_numero(db), **payload.model_dump())
     db.add(obj)
+    db.flush()
+    _journaliser(db, obj.id, "Création du dossier", obj.numero_dossier, user)
     db.commit()
     db.refresh(obj)
     return _get_dossier_ou_404(obj.id, db)
 
 
 @router.put("/{dossier_id}", response_model=schemas.DossierHotelOut, dependencies=[Depends(exiger_utilisateur_connecte)])
-def modifier_dossier(dossier_id: int, payload: schemas.DossierHotelCreate, db: Session = Depends(get_db)):
+def modifier_dossier(dossier_id: int, payload: schemas.DossierHotelCreate, db: Session = Depends(get_db), user=Depends(get_current_user)):
     obj = db.query(models.DossierHotel).get(dossier_id)
     if not obj:
         raise HTTPException(404, "Dossier hôtelier introuvable.")
     for k, v in payload.model_dump().items():
         setattr(obj, k, v)
+    _journaliser(db, dossier_id, "Modification du dossier", None, user)
     db.commit()
     db.refresh(obj)
     return _get_dossier_ou_404(dossier_id, db)
@@ -126,7 +140,7 @@ def export_pdf(dossier_id: int, db: Session = Depends(get_db)):
     status_code=201,
     dependencies=[Depends(exiger_utilisateur_connecte)],
 )
-def ajouter_reservation(dossier_id: int, payload: schemas.ReservationHotelCreate, db: Session = Depends(get_db)):
+def ajouter_reservation(dossier_id: int, payload: schemas.ReservationHotelCreate, db: Session = Depends(get_db), user=Depends(get_current_user)):
     dossier = db.query(models.DossierHotel).get(dossier_id)
     if not dossier:
         raise HTTPException(404, "Dossier hôtelier introuvable.")
@@ -137,6 +151,8 @@ def ajouter_reservation(dossier_id: int, payload: schemas.ReservationHotelCreate
 
     obj = models.ReservationHotel(dossier_id=dossier_id, **payload.model_dump())
     db.add(obj)
+    hotel = db.query(models.Hotel).get(payload.hotel_id)
+    _journaliser(db, dossier_id, "Réservation ajoutée", hotel.nom if hotel else None, user)
     db.commit()
     return _get_dossier_ou_404(dossier_id, db)
 
@@ -147,7 +163,8 @@ def ajouter_reservation(dossier_id: int, payload: schemas.ReservationHotelCreate
     dependencies=[Depends(exiger_utilisateur_connecte)],
 )
 def modifier_reservation(
-    dossier_id: int, reservation_id: int, payload: schemas.ReservationHotelCreate, db: Session = Depends(get_db)
+    dossier_id: int, reservation_id: int, payload: schemas.ReservationHotelCreate,
+    db: Session = Depends(get_db), user=Depends(get_current_user),
 ):
     obj = (
         db.query(models.ReservationHotel)
@@ -160,6 +177,8 @@ def modifier_reservation(
         raise HTTPException(400, "La date de départ doit être postérieure à la date d'arrivée.")
     for k, v in payload.model_dump().items():
         setattr(obj, k, v)
+    etat = getattr(payload.etat, "value", payload.etat)
+    _journaliser(db, dossier_id, "Réservation modifiée", f"Réservation n°{reservation_id} — état : {etat}", user)
     db.commit()
     return _get_dossier_ou_404(dossier_id, db)
 
@@ -169,7 +188,7 @@ def modifier_reservation(
     response_model=schemas.DossierHotelOut,
     dependencies=[Depends(exiger_utilisateur_connecte)],
 )
-def supprimer_reservation(dossier_id: int, reservation_id: int, db: Session = Depends(get_db)):
+def supprimer_reservation(dossier_id: int, reservation_id: int, db: Session = Depends(get_db), user=Depends(get_current_user)):
     obj = (
         db.query(models.ReservationHotel)
         .filter(models.ReservationHotel.id == reservation_id, models.ReservationHotel.dossier_id == dossier_id)
@@ -178,5 +197,6 @@ def supprimer_reservation(dossier_id: int, reservation_id: int, db: Session = De
     if not obj:
         raise HTTPException(404, "Réservation introuvable pour ce dossier.")
     db.delete(obj)
+    _journaliser(db, dossier_id, "Réservation supprimée", f"Réservation n°{reservation_id}", user)
     db.commit()
     return _get_dossier_ou_404(dossier_id, db)
