@@ -62,6 +62,11 @@ export function pdfUrlLocation(factureId: number) {
   return `${API_URL}/factures-location/${factureId}/pdf?access_token=${encodeURIComponent(token || "")}`;
 }
 
+export function pdfUrlDossierHotel(dossierId: number) {
+  const token = getToken();
+  return `${API_URL}/dossiers-hotels/${dossierId}/pdf?access_token=${encodeURIComponent(token || "")}`;
+}
+
 /** URL du WebSocket de la messagerie interne, avec le jeton d'accès en paramètre
  * (une connexion WebSocket ne peut pas transmettre d'en-tête Authorization). */
 export function messagerieWsUrl() {

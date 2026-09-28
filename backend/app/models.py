@@ -39,6 +39,22 @@ class CategorieDepense(str, enum.Enum):
     autre = "autre"
 
 
+class EtatReservation(str, enum.Enum):
+    en_attente = "en_attente"
+    option = "option"
+    confirmee = "confirmee"
+    refusee = "refusee"
+    annulee = "annulee"
+
+
+class TypePension(str, enum.Enum):
+    sans_pension = "sans_pension"
+    petit_dejeuner = "petit_dejeuner"
+    demi_pension = "demi_pension"
+    pension_complete = "pension_complete"
+    all_inclusive = "all_inclusive"
+
+
 class Utilisateur(Base):
     __tablename__ = "utilisateurs"
 
@@ -348,3 +364,118 @@ class ParametresApp(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     duplication_mouvements_active: Mapped[bool] = mapped_column(default=True)
     prix_automatique_actif: Mapped[bool] = mapped_column(default=True)
+
+
+# ================================================================
+# Module Réservations Hôtels
+# ================================================================
+
+class Hotel(Base):
+    """Référentiel des hôtels partenaires : ville/pays/catégorie, coordonnées
+    et contact réservation. Un hôtel peut être désactivé (actif=False) sans
+    être supprimé s'il est déjà lié à des réservations existantes."""
+
+    __tablename__ = "hotels"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    nom: Mapped[str] = mapped_column(String(150), index=True)
+    ville: Mapped[str] = mapped_column(String(100))
+    pays: Mapped[str] = mapped_column(String(100))
+    categorie_etoiles: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    adresse: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    telephone: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    email: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    contact_reservation: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    observations: Mapped[str | None] = mapped_column(Text, nullable=True)
+    actif: Mapped[bool] = mapped_column(default=True)
+
+
+class DossierHotel(Base):
+    """Dossier hôtelier : arrivée/départ d'un groupe (agence + circuit),
+    informations de vol, et une ou plusieurs réservations hôtelières. Le
+    statut global (`statut_global`) n'est pas stocké : il est calculé à la
+    volée à partir de l'état des réservations liées, pour ne jamais se
+    désynchroniser d'une modification faite sur une réservation."""
+
+    __tablename__ = "dossiers_hotels"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    numero_dossier: Mapped[str] = mapped_column(String(50), unique=True, index=True)
+    agence_id: Mapped[int | None] = mapped_column(ForeignKey("agences.id"), nullable=True)
+    circuit_id: Mapped[int | None] = mapped_column(ForeignKey("circuits.id"), nullable=True)
+    date_arrivee: Mapped[date | None] = mapped_column(Date, nullable=True)
+    heure_arrivee: Mapped[time | None] = mapped_column(Time, nullable=True)
+    numero_vol_arrivee: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    compagnie_arrivee: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    date_depart: Mapped[date | None] = mapped_column(Date, nullable=True)
+    heure_depart: Mapped[time | None] = mapped_column(Time, nullable=True)
+    numero_vol_depart: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    compagnie_depart: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    nb_personnes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    nb_chambres: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    observations: Mapped[str | None] = mapped_column(Text, nullable=True)
+    date_creation: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    agence: Mapped["Agence | None"] = relationship(foreign_keys=[agence_id])
+    circuit: Mapped["Circuit | None"] = relationship(foreign_keys=[circuit_id])
+    reservations: Mapped[list["ReservationHotel"]] = relationship(
+        back_populates="dossier", cascade="all, delete-orphan", order_by="ReservationHotel.date_arrivee"
+    )
+
+    @property
+    def statut_global(self) -> str:
+        """Calculé à partir des états des réservations liées :
+        - aucune réservation, ou au moins une en attente/option/refusée non
+          résolue → "en_cours" (le dossier a encore du travail à faire) ;
+        - toutes annulées → "annule" ;
+        - toutes confirmées ou annulées (au moins une confirmée) → "confirme"."""
+        etats = [r.etat for r in self.reservations]
+        if not etats:
+            return "en_cours"
+        if all(e == EtatReservation.annulee for e in etats):
+            return "annule"
+        if all(e in (EtatReservation.confirmee, EtatReservation.annulee) for e in etats) and any(
+            e == EtatReservation.confirmee for e in etats
+        ):
+            return "confirme"
+        return "en_cours"
+
+
+class ReservationHotel(Base):
+    """Une réservation hôtelière au sein d'un dossier : un hôtel, une période
+    de séjour, une répartition de chambres et un état. Si l'état est
+    "refusee", `hotel_remplacement_id` peut pointer vers l'hôtel de
+    repli choisi. `nb_nuits` n'est pas stocké : calculé depuis les dates."""
+
+    __tablename__ = "reservations_hotels"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    dossier_id: Mapped[int] = mapped_column(ForeignKey("dossiers_hotels.id", ondelete="CASCADE"))
+    hotel_id: Mapped[int] = mapped_column(ForeignKey("hotels.id"))
+    date_arrivee: Mapped[date] = mapped_column(Date)
+    date_depart: Mapped[date] = mapped_column(Date)
+    nb_personnes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    nb_chambres: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    chambres_single: Mapped[int] = mapped_column(Integer, default=0)
+    chambres_double: Mapped[int] = mapped_column(Integer, default=0)
+    chambres_twin: Mapped[int] = mapped_column(Integer, default=0)
+    chambres_triple: Mapped[int] = mapped_column(Integer, default=0)
+    type_pension: Mapped[TypePension | None] = mapped_column(
+        Enum(TypePension, name="type_pension"), nullable=True
+    )
+    etat: Mapped[EtatReservation] = mapped_column(
+        Enum(EtatReservation, name="etat_reservation"), default=EtatReservation.en_attente
+    )
+    hotel_remplacement_id: Mapped[int | None] = mapped_column(ForeignKey("hotels.id"), nullable=True)
+    observations: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    dossier: Mapped["DossierHotel"] = relationship(back_populates="reservations")
+    hotel: Mapped["Hotel"] = relationship(foreign_keys=[hotel_id])
+    hotel_remplacement: Mapped["Hotel | None"] = relationship(foreign_keys=[hotel_remplacement_id])
+
+    @property
+    def nb_nuits(self) -> int:
+        if not self.date_arrivee or not self.date_depart:
+            return 0
+        delta = (self.date_depart - self.date_arrivee).days
+        return delta if delta > 0 else 0

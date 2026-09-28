@@ -297,3 +297,131 @@ export interface Parametres {
   duplication_mouvements_active: boolean;
   prix_automatique_actif: boolean;
 }
+
+// ---------- Module Hôtels ----------
+export interface Hotel {
+  id: number;
+  nom: string;
+  ville: string;
+  pays: string;
+  categorie_etoiles: number | null; // nombre d'étoiles, 1 à 5
+  adresse: string | null;
+  telephone: string | null;
+  email: string | null;
+  contact_reservation: string | null;
+  observations: string | null;
+  actif: boolean;
+}
+
+// Valeurs possibles du statut global calculé (propriété `statut_global`, non stockée,
+// dérivée côté backend de l'état des réservations liées au dossier).
+export type StatutDossierHotel = "en_cours" | "confirme" | "cloture" | "annule";
+
+export const LABELS_STATUT_DOSSIER_HOTEL: Record<StatutDossierHotel, string> = {
+  en_cours: "En cours",
+  confirme: "Confirmé",
+  cloture: "Clôturé",
+  annule: "Annulé",
+};
+
+export type EtatReservation = "en_attente" | "option" | "confirmee" | "refusee" | "annulee";
+
+export const LABELS_ETAT_RESERVATION: Record<EtatReservation, string> = {
+  en_attente: "En attente",
+  option: "Option",
+  confirmee: "Confirmée",
+  refusee: "Refusée",
+  annulee: "Annulée",
+};
+
+export type TypePension = "sans_pension" | "petit_dejeuner" | "demi_pension" | "pension_complete" | "all_inclusive";
+
+export const LABELS_TYPE_PENSION: Record<TypePension, string> = {
+  sans_pension: "Sans pension",
+  petit_dejeuner: "Petit-déjeuner",
+  demi_pension: "Demi-pension",
+  pension_complete: "Pension complète",
+  all_inclusive: "All inclusive",
+};
+
+export interface ReservationHotel {
+  id: number;
+  dossier_id: number;
+  hotel_id: number;
+  date_arrivee: string;
+  date_depart: string;
+  nb_nuits: number; // calculé côté backend (propriété), jamais envoyé en écriture
+  nb_personnes: number | null;
+  nb_chambres: number | null;
+  chambres_single: number;
+  chambres_double: number;
+  chambres_twin: number;
+  chambres_triple: number;
+  type_pension: TypePension | null;
+  etat: EtatReservation;
+  hotel_remplacement_id: number | null;
+  observations: string | null;
+  hotel?: Hotel;
+  hotel_remplacement?: Hotel | null;
+}
+
+// Payload accepté par les routes imbriquées POST/PUT
+// /dossiers-hotels/{id}/reservations[/{reservation_id}]
+export interface ReservationHotelPayload {
+  hotel_id: number;
+  date_arrivee: string;
+  date_depart: string;
+  nb_personnes: number | null;
+  nb_chambres: number | null;
+  chambres_single: number;
+  chambres_double: number;
+  chambres_twin: number;
+  chambres_triple: number;
+  type_pension: TypePension | null;
+  etat: EtatReservation;
+  hotel_remplacement_id: number | null;
+  observations: string | null;
+}
+
+// Correspond à DossierHotelOut : `agence` (pas `client`) et `statut_global`
+// (calculé, jamais envoyé en écriture — DossierHotelCreate ne le contient pas).
+export interface DossierHotel {
+  id: number;
+  numero_dossier: string;
+  agence_id: number | null;
+  circuit_id: number | null;
+  date_arrivee: string | null;
+  heure_arrivee: string | null;
+  numero_vol_arrivee: string | null;
+  compagnie_arrivee: string | null;
+  date_depart: string | null;
+  heure_depart: string | null;
+  numero_vol_depart: string | null;
+  compagnie_depart: string | null;
+  nb_personnes: number | null;
+  nb_chambres: number | null;
+  observations: string | null;
+  date_creation: string;
+  statut_global: string;
+  agence?: Agence | null;
+  circuit?: Circuit | null;
+  reservations: ReservationHotel[];
+}
+
+// Payload accepté par POST/PUT /dossiers-hotels/ (pas de numero_dossier : auto-généré,
+// pas de statut : calculé).
+export interface DossierHotelPayload {
+  agence_id: number | null;
+  circuit_id: number | null;
+  date_arrivee: string | null;
+  heure_arrivee: string | null;
+  numero_vol_arrivee: string | null;
+  compagnie_arrivee: string | null;
+  date_depart: string | null;
+  heure_depart: string | null;
+  numero_vol_depart: string | null;
+  compagnie_depart: string | null;
+  nb_personnes: number | null;
+  nb_chambres: number | null;
+  observations: string | null;
+}

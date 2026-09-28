@@ -15,6 +15,10 @@ import Depenses from "./pages/Depenses";
 import Finances from "./pages/Finances";
 import MouvementsLocation from "./pages/MouvementsLocation";
 import Utilisateurs from "./pages/Utilisateurs";
+import Hotels from "./pages/Hotels";
+import DossiersHotels from "./pages/DossiersHotels";
+import FicheDossierHotel from "./pages/FicheDossierHotel";
+import ReservationsHotels from "./pages/ReservationsHotels";
 import MessagerieWidget from "./components/MessagerieWidget";
 
 function Sidebar({ ouverte, onFermer }: { ouverte: boolean; onFermer: () => void }) {
@@ -65,6 +69,15 @@ function Sidebar({ ouverte, onFermer }: { ouverte: boolean; onFermer: () => void
         )}
         <NavLink to="/mouvements-location" className={({ isActive }) => (isActive ? "active" : "")}>
           Mouvements Location
+        </NavLink>
+        <NavLink to="/hotels" className={({ isActive }) => (isActive ? "active" : "")}>
+          Hôtels
+        </NavLink>
+        <NavLink to="/dossiers-hotels" className={({ isActive }) => (isActive ? "active" : "")}>
+          Dossiers hôtels
+        </NavLink>
+        <NavLink to="/reservations-hotels" className={({ isActive }) => (isActive ? "active" : "")}>
+          Réservations hôtels
         </NavLink>
         {estAdmin && (
           <NavLink to="/utilisateurs" className={({ isActive }) => (isActive ? "active" : "")}>
@@ -132,6 +145,10 @@ function RoutesProtegees() {
           {estAdmin && <Route path="/depenses" element={<Depenses />} />}
           {estAdmin && <Route path="/finances" element={<Finances />} />}
           <Route path="/mouvements-location" element={<MouvementsLocation />} />
+          <Route path="/hotels" element={<Hotels />} />
+          <Route path="/dossiers-hotels" element={<DossiersHotels />} />
+          <Route path="/dossiers-hotels/:id" element={<FicheDossierHotel />} />
+          <Route path="/reservations-hotels" element={<ReservationsHotels />} />
           {estAdmin && <Route path="/utilisateurs" element={<Utilisateurs />} />}
           <Route path="*" element={<Navigate to="/mouvements" replace />} />
         </Routes>

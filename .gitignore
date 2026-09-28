@@ -12,4 +12,9 @@ frontend/.env
 
 # Divers
 .DS_Store
+*.pyc__pycache__/
 *.pyc
+venv/
+node_modules/
+dist/
+.env

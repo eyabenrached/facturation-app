@@ -22,6 +22,8 @@
   --teal-soft: #e3f3ee;
   --coral: #b8443c;         /* danger / impayé */
   --coral-soft: #fbeae8;
+  --info: #2d6da3;          /* info / option (réservations hôtels) */
+  --info-soft: #e6eef6;
 
   /* Neutres */
   --paper: #f6f5f1;         /* fond général de l'app, blanc cassé chaud */
@@ -434,6 +436,15 @@ a { color: inherit; }
 .badge.payee { background: var(--teal-soft); color: var(--teal); }
 .badge.impayee { background: var(--coral-soft); color: var(--coral); }
 .badge.partielle { background: var(--gold-soft); color: var(--gold-dark); }
+.badge.confirmee { background: var(--teal-soft); color: var(--teal); }
+.badge.en_attente { background: var(--gold-soft); color: var(--gold-dark); }
+.badge.option { background: var(--info-soft); color: var(--info); }
+.badge.refusee { background: var(--coral-soft); color: var(--coral); }
+.badge.annulee { background: #ececea; color: var(--muted); }
+.badge.en_cours { background: var(--gold-soft); color: var(--gold-dark); }
+.badge.confirme { background: var(--teal-soft); color: var(--teal); }
+.badge.cloture { background: #ececea; color: var(--muted); }
+.badge.annule { background: var(--coral-soft); color: var(--coral); }
 
 .role-badge { display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 0.72rem; font-weight: 600; }
 .role-badge.administrateur { background: var(--teal-soft); color: var(--teal); }
