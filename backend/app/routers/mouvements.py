@@ -37,6 +37,8 @@ def liste_mouvements(
     transporteur_id: int | None = None,
     chauffeur_id: int | None = None,
     type_vehicule: models.TypeVehicule | None = None,  # mini_bus | microbus | quatre_quatre
+    prix_min: float | None = None,
+    prix_max: float | None = None,
     statut: str | None = None,  # "facture" | "non_facture"
     db: Session = Depends(get_db),
 ):
@@ -66,6 +68,10 @@ def liste_mouvements(
         q = q.join(models.Vehicule, models.Mouvement.vehicule_id == models.Vehicule.id).filter(
             models.Vehicule.type_vehicule == type_vehicule
         )
+    if prix_min is not None:
+        q = q.filter(models.Mouvement.prix_applique >= prix_min)
+    if prix_max is not None:
+        q = q.filter(models.Mouvement.prix_applique <= prix_max)
     if statut == "facture":
         q = q.filter(models.Mouvement.facture_id.isnot(None))
     elif statut == "non_facture":

@@ -54,6 +54,8 @@ export default function Mouvements() {
   const [filtreTransporteur, setFiltreTransporteur] = useState("");
   const [filtreChauffeur, setFiltreChauffeur] = useState("");
   const [filtreTypeVehicule, setFiltreTypeVehicule] = useState("");
+  const [filtrePrixMin, setFiltrePrixMin] = useState("");
+  const [filtrePrixMax, setFiltrePrixMax] = useState("");
 
   const [mouvements, setMouvements] = useState<Mouvement[]>([]);
 
@@ -142,12 +144,14 @@ export default function Mouvements() {
     if (filtreTransporteur) params.set("transporteur_id", filtreTransporteur);
     if (filtreChauffeur) params.set("chauffeur_id", filtreChauffeur);
     if (filtreTypeVehicule) params.set("type_vehicule", filtreTypeVehicule);
+    if (filtrePrixMin) params.set("prix_min", filtrePrixMin);
+    if (filtrePrixMax) params.set("prix_max", filtrePrixMax);
     setMouvements(await api.get<Mouvement[]>(`/mouvements/?${params.toString()}`));
   }
 
   useEffect(() => {
     chargerMouvements();
-  }, [dateDu, dateAu, filtreClient, filtreCircuit, filtreStatutMvt, filtreHeure, filtreTransporteur, filtreChauffeur, filtreTypeVehicule]);
+  }, [dateDu, dateAu, filtreClient, filtreCircuit, filtreStatutMvt, filtreHeure, filtreTransporteur, filtreChauffeur, filtreTypeVehicule, filtrePrixMin, filtrePrixMax]);
 
   // ---------- Ajout d'un mouvement ----------
   function ouvrirAjoutMouvement() {
@@ -489,6 +493,14 @@ export default function Mouvements() {
               <option key={t} value={t}>{LABELS_TYPE_VEHICULE[t]}</option>
             ))}
           </select>
+        </div>
+        <div className="form-field">
+          <label>Prix min (TND)</label>
+          <input type="number" min="0" step="any" value={filtrePrixMin} onChange={(e) => setFiltrePrixMin(e.target.value)} />
+        </div>
+        <div className="form-field">
+          <label>Prix max (TND)</label>
+          <input type="number" min="0" step="any" value={filtrePrixMax} onChange={(e) => setFiltrePrixMax(e.target.value)} />
         </div>
       </div>
 
