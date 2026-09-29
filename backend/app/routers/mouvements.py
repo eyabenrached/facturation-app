@@ -36,6 +36,7 @@ def liste_mouvements(
     heure: str | None = None,
     transporteur_id: int | None = None,
     chauffeur_id: int | None = None,
+    type_vehicule: models.TypeVehicule | None = None,  # mini_bus | microbus | quatre_quatre
     statut: str | None = None,  # "facture" | "non_facture"
     db: Session = Depends(get_db),
 ):
@@ -61,6 +62,10 @@ def liste_mouvements(
         q = q.filter(models.Mouvement.transporteur_id == transporteur_id)
     if chauffeur_id:
         q = q.filter(models.Mouvement.chauffeur_id == chauffeur_id)
+    if type_vehicule:
+        q = q.join(models.Vehicule, models.Mouvement.vehicule_id == models.Vehicule.id).filter(
+            models.Vehicule.type_vehicule == type_vehicule
+        )
     if statut == "facture":
         q = q.filter(models.Mouvement.facture_id.isnot(None))
     elif statut == "non_facture":

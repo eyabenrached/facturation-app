@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
-import { Mouvement, Client, Circuit, Chauffeur, Vehicule, Agence, Parametres, TarifClient } from "../types";
+import { Mouvement, Client, Circuit, Chauffeur, Vehicule, Agence, Parametres, TarifClient, TypeVehicule, LABELS_TYPE_VEHICULE } from "../types";
 import { DataTable } from "../components/DataTable";
 import { Modal } from "../components/Modal";
 import { RecapTransporteurs } from "../components/RecapTransporteurs";
 import { useAuth } from "../auth/AuthContext";
+
+const TYPES_VEHICULE_FILTRE: TypeVehicule[] = ["mini_bus", "microbus", "quatre_quatre"];
 
 const LISTE_PRIX = [70, 80, 90, 100, 110, 120, 125, 130, 135, 150, 160, 180, 225];
 
@@ -51,6 +53,7 @@ export default function Mouvements() {
   const [filtreHeure, setFiltreHeure] = useState("");
   const [filtreTransporteur, setFiltreTransporteur] = useState("");
   const [filtreChauffeur, setFiltreChauffeur] = useState("");
+  const [filtreTypeVehicule, setFiltreTypeVehicule] = useState("");
 
   const [mouvements, setMouvements] = useState<Mouvement[]>([]);
 
@@ -138,12 +141,13 @@ export default function Mouvements() {
     if (filtreHeure) params.set("heure", filtreHeure);
     if (filtreTransporteur) params.set("transporteur_id", filtreTransporteur);
     if (filtreChauffeur) params.set("chauffeur_id", filtreChauffeur);
+    if (filtreTypeVehicule) params.set("type_vehicule", filtreTypeVehicule);
     setMouvements(await api.get<Mouvement[]>(`/mouvements/?${params.toString()}`));
   }
 
   useEffect(() => {
     chargerMouvements();
-  }, [dateDu, dateAu, filtreClient, filtreCircuit, filtreStatutMvt, filtreHeure, filtreTransporteur, filtreChauffeur]);
+  }, [dateDu, dateAu, filtreClient, filtreCircuit, filtreStatutMvt, filtreHeure, filtreTransporteur, filtreChauffeur, filtreTypeVehicule]);
 
   // ---------- Ajout d'un mouvement ----------
   function ouvrirAjoutMouvement() {
@@ -474,6 +478,15 @@ export default function Mouvements() {
             <option value="">Tous les chauffeurs</option>
             {chauffeurs.map((c) => (
               <option key={c.id} value={c.id}>{c.prenom} {c.nom}</option>
+            ))}
+          </select>
+        </div>
+        <div className="form-field">
+          <label>Type de véhicule</label>
+          <select value={filtreTypeVehicule} onChange={(e) => setFiltreTypeVehicule(e.target.value)}>
+            <option value="">Tous les types</option>
+            {TYPES_VEHICULE_FILTRE.map((t) => (
+              <option key={t} value={t}>{LABELS_TYPE_VEHICULE[t]}</option>
             ))}
           </select>
         </div>
