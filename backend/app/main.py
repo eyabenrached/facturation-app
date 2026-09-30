@@ -64,6 +64,10 @@ def migrer_colonnes_manquantes():
             "ALTER TABLE chauffeurs ADD COLUMN IF NOT EXISTS "
             "actif BOOLEAN NOT NULL DEFAULT TRUE"
         ))
+        conn.execute(text(
+            "ALTER TABLE factures ADD COLUMN IF NOT EXISTS "
+            "timbre NUMERIC(6,3) NOT NULL DEFAULT 0"
+        ))
         # Dossiers hôtels : agence et circuit en saisie libre (texte).
         conn.execute(text("ALTER TABLE dossiers_hotels ADD COLUMN IF NOT EXISTS agence_nom VARCHAR(150)"))
         conn.execute(text("ALTER TABLE dossiers_hotels ADD COLUMN IF NOT EXISTS circuit_nom VARCHAR(200)"))

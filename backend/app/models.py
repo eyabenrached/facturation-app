@@ -267,6 +267,10 @@ class Facture(Base):
     # automatiquement à partir des mouvements liés, pas de saisie manuelle).
     type_facture: Mapped[str] = mapped_column(String(20), default="detaillee")
 
+    # Timbre fiscal (1 DT), ajouté au TTC. 0 pour les clients à TVA 0 % et
+    # pour les factures créées avant l'introduction du timbre.
+    timbre: Mapped[float] = mapped_column(Numeric(6, 3), default=0, server_default="0")
+
     client: Mapped["Client"] = relationship(back_populates="factures")
     mouvements: Mapped[list["Mouvement"]] = relationship(back_populates="facture")
 

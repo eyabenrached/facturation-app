@@ -125,7 +125,9 @@ export default function Factures() {
   // seule la mise en forme du PDF change (détail par mouvement ou résumé par heure).
   const totalHT = nonFactures.reduce((s, m) => s + Number(m.prix_applique), 0);
   const montantTva = Math.round(totalHT * tauxTva) / 100;
-  const totalTTC = Math.round((totalHT + montantTva) * 1000) / 1000;
+  // Timbre fiscal : 1 DT, sauf clients à TVA 0 %.
+  const timbre = tauxTva === 0 ? 0 : 1;
+  const totalTTC = Math.round((totalHT + montantTva + timbre) * 1000) / 1000;
 
   async function ouvrirGenerationFacture() {
     if (!filtreClient || !dateDu || !dateAu) {
@@ -221,6 +223,9 @@ export default function Factures() {
           <div className="recap-grid">
             <div className="recap-box"><div className="label">Total HT</div><div className="value">{totalHT.toFixed(3)} TND</div></div>
             <div className="recap-box"><div className="label">TVA ({tauxTva}%)</div><div className="value">{montantTva.toFixed(3)} TND</div></div>
+            {timbre > 0 && (
+              <div className="recap-box"><div className="label">Timbre fiscal</div><div className="value">{timbre.toFixed(3)} TND</div></div>
+            )}
             <div className="recap-box"><div className="label">Total TTC</div><div className="value">{totalTTC.toFixed(3)} TND</div></div>
           </div>
           <div className="form-actions">
@@ -299,6 +304,9 @@ export default function Factures() {
           <div className="recap-grid">
             <div className="recap-box"><div className="label">Total HT</div><div className="value">{totalHT.toFixed(3)} TND</div></div>
             <div className="recap-box"><div className="label">TVA ({tauxTva}%)</div><div className="value">{montantTva.toFixed(3)} TND</div></div>
+            {timbre > 0 && (
+              <div className="recap-box"><div className="label">Timbre fiscal</div><div className="value">{timbre.toFixed(3)} TND</div></div>
+            )}
             <div className="recap-box"><div className="label">Total TTC</div><div className="value">{totalTTC.toFixed(3)} TND</div></div>
           </div>
           <div className="form-actions">

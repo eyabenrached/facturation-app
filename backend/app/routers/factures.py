@@ -10,6 +10,9 @@ from ..pdf import generer_facture_pdf, generer_facture_recap_heures_pdf
 
 router = APIRouter(prefix="/factures", tags=["Factures"])
 
+# Timbre fiscal ajouté à chaque facture, sauf pour les clients à TVA 0 %.
+TIMBRE_FISCAL = 1.0
+
 
 def _suggerer_numero(db: Session) -> str:
     """
@@ -84,7 +87,8 @@ def generer_facture(payload: schemas.FactureGenerateRequest, db: Session = Depen
     taux_tva = float(client.taux_tva)
     montant_ht = sum(float(m.prix_applique) for m in mouvements)
     montant_tva = round(montant_ht * taux_tva / 100, 3)
-    montant_ttc = round(montant_ht + montant_tva, 3)
+    timbre = 0.0 if taux_tva == 0 else TIMBRE_FISCAL
+    montant_ttc = round(montant_ht + montant_tva + timbre, 3)
 
     type_facture = payload.type_facture if payload.type_facture == "recap_heures" else "detaillee"
 
@@ -97,6 +101,7 @@ def generer_facture(payload: schemas.FactureGenerateRequest, db: Session = Depen
         taux_tva=taux_tva,
         montant_tva=montant_tva,
         montant_ttc=montant_ttc,
+        timbre=timbre,
         statut=models.StatutFacture.impayee,
         type_facture=type_facture,
     )

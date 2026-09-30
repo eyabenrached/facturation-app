@@ -156,6 +156,7 @@ export interface Facture {
   taux_tva: number;
   montant_tva: number;
   montant_ttc: number;
+  timbre?: number;
   statut: StatutFacture;
   date_creation: string;
   date_paiement: string | null;

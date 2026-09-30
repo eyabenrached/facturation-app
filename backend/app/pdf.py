@@ -389,11 +389,19 @@ def _table_facture(facture, recap: bool, styles):
 
 
 def _totals_and_summary(facture, styles):
+    timbre = float(getattr(facture, "timbre", 0) or 0)
     totals_data = [
         [Paragraph("SOUS-TOTAL", styles["total_label"]), Paragraph(_fmt_money(facture.montant_ht), styles["total_value"])],
         [Paragraph(f"TVA ({float(facture.taux_tva):.0f}%)", styles["total_label"]), Paragraph(_fmt_money(facture.montant_tva), styles["total_value"])],
-        [Paragraph("TOTAL TTC", styles["total_ttc_label"]), Paragraph(f"{_fmt_money(facture.montant_ttc)} DT", styles["total_ttc_value"])],
     ]
+    if timbre > 0:
+        totals_data.append(
+            [Paragraph("TIMBRE FISCAL", styles["total_label"]), Paragraph(_fmt_money(timbre), styles["total_value"])]
+        )
+    totals_data.append(
+        [Paragraph("TOTAL TTC", styles["total_ttc_label"]), Paragraph(f"{_fmt_money(facture.montant_ttc)} DT", styles["total_ttc_value"])]
+    )
+    ligne_ttc = len(totals_data) - 1
     totals = Table(totals_data, colWidths=[42 * mm, 45 * mm])
     totals.setStyle(TableStyle([
         ("BOX", (0, 0), (-1, -1), 0.8, LINE),
@@ -404,7 +412,7 @@ def _totals_and_summary(facture, styles):
         ("RIGHTPADDING", (0, 0), (-1, -1), 3 * mm),
         ("TOPPADDING", (0, 0), (-1, -1), 3.3 * mm),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 3.3 * mm),
-        ("BACKGROUND", (0, 2), (-1, 2), BLUE_SOFT),
+        ("BACKGROUND", (0, ligne_ttc), (-1, ligne_ttc), BLUE_SOFT),
     ]))
 
     return Table([["", totals]], colWidths=[86 * mm, 87 * mm], style=TableStyle([

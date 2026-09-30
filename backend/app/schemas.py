@@ -316,6 +316,7 @@ class FactureOut(BaseModel):
     taux_tva: float
     montant_tva: float
     montant_ttc: float
+    timbre: float = 0
     statut: StatutFacture
     date_creation: datetime
     date_paiement: date | None = None
