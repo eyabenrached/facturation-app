@@ -300,7 +300,9 @@ export default function FicheClient() {
 
       {/* ---------- Tarifs spécifiques ---------- */}
       <div className="page-header" style={{ marginTop: "0" }}>
-        <h3 style={{ margin: 0 }}>Tarifs spécifiques</h3>
+        <h3 style={{ margin: 0 }}>
+          Tarifs spécifiques ({tarifsFiltres.length === tarifs.length ? tarifs.length : `${tarifsFiltres.length} sur ${tarifs.length}`})
+        </h3>
         {estAdmin && (
           <button className="btn" onClick={ouvrirAjoutTarif}>+ Ajouter un tarif</button>
         )}
