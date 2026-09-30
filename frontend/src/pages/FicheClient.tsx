@@ -48,6 +48,7 @@ export default function FicheClient() {
   const [selection, setSelection] = useState<number[]>([]);
   const [modalCopieOuvert, setModalCopieOuvert] = useState(false);
   const [typeCopie, setTypeCopie] = useState(""); // "" = non choisi, "__tous" = Tous types
+  const [prixCopie, setPrixCopie] = useState(""); // "" = garder le prix d'origine
   const [erreurCopie, setErreurCopie] = useState("");
   const [copieEnCours, setCopieEnCours] = useState(false);
 
@@ -170,6 +171,7 @@ export default function FicheClient() {
 
   function ouvrirCopieTarifs() {
     setTypeCopie("");
+    setPrixCopie("");
     setErreurCopie("");
     setModalCopieOuvert(true);
   }
@@ -181,6 +183,11 @@ export default function FicheClient() {
       return;
     }
     const nouveauType = typeCopie === "__tous" ? null : (typeCopie as TypeVehicule);
+    const nouveauPrix = prixCopie.trim() === "" ? null : Number(prixCopie);
+    if (nouveauPrix !== null && (Number.isNaN(nouveauPrix) || nouveauPrix < 0)) {
+      setErreurCopie("Prix invalide.");
+      return;
+    }
     const aCopier = fiche.tarifs.filter((t) => selection.includes(t.id));
     setCopieEnCours(true);
     setErreurCopie("");
@@ -188,8 +195,9 @@ export default function FicheClient() {
     let ignores = 0;
     const echecs: string[] = [];
     for (const t of aCopier) {
-      if ((t.type_vehicule || null) === nouveauType) {
-        ignores++; // même type que l'original : rien à copier
+      const prixFinal = nouveauPrix ?? t.prix;
+      if ((t.type_vehicule || null) === nouveauType && prixFinal === Number(t.prix)) {
+        ignores++; // même type et même prix que l'original : rien à copier
         continue;
       }
       try {
@@ -199,7 +207,7 @@ export default function FicheClient() {
           type_vehicule: nouveauType,
           heure_debut: t.heure_debut,
           heure_fin: t.heure_fin,
-          prix: t.prix,
+          prix: prixFinal,
         });
         ok++;
       } catch (e) {
@@ -210,7 +218,7 @@ export default function FicheClient() {
     if (ok > 0) charger();
     if (echecs.length === 0) {
       if (ok === 0) {
-        setErreurCopie("Les tarifs sélectionnés ont déjà ce type : rien à copier.");
+        setErreurCopie("Les tarifs sélectionnés ont déjà ce type et ce prix : rien à copier.");
         return;
       }
       setModalCopieOuvert(false);
@@ -489,7 +497,7 @@ export default function FicheClient() {
         <Modal title="Copier les tarifs avec un autre type" onClose={() => setModalCopieOuvert(false)}>
           {erreurCopie && <p className="error-msg">{erreurCopie}</p>}
           <p style={{ marginTop: 0 }}>
-            {selection.length} tarif(s) seront copiés (circuit, heure et prix identiques). Les originaux restent inchangés.
+            {selection.length} tarif(s) seront copiés (circuit et heure identiques). Les originaux restent inchangés.
           </p>
           <div className="form-field">
             <label>Nouveau type de véhicule</label>
@@ -500,6 +508,17 @@ export default function FicheClient() {
               ))}
               <option value="__tous">Tous types</option>
             </select>
+          </div>
+          <div className="form-field" style={{ marginTop: "0.75rem" }}>
+            <label>Nouveau prix (TND) — optionnel</label>
+            <input
+              type="number"
+              min="0"
+              step="0.001"
+              placeholder="Vide = garder le prix d'origine"
+              value={prixCopie}
+              onChange={(e) => setPrixCopie(e.target.value)}
+            />
           </div>
           <div style={{ marginTop: "1rem", display: "flex", gap: "0.5rem", justifyContent: "flex-end" }}>
             <button className="btn-link" onClick={() => setModalCopieOuvert(false)}>Annuler</button>
