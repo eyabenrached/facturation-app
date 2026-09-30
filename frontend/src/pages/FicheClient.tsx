@@ -230,6 +230,26 @@ export default function FicheClient() {
     );
   }
 
+  async function supprimerTarifsSelectionnes() {
+    if (selection.length === 0) return;
+    if (!confirm(`Supprimer définitivement ${selection.length} tarif(s) spécifique(s) ?`)) return;
+    let ok = 0;
+    const echecs: string[] = [];
+    for (const id of selection) {
+      try {
+        await api.delete(`/circuits/tarifs/${id}`);
+        ok++;
+      } catch (e) {
+        echecs.push((e as Error).message);
+      }
+    }
+    setSelection([]);
+    charger();
+    if (echecs.length > 0) {
+      alert(`${ok} supprimé(s), ${echecs.length} en échec : ${echecs.join(" ; ")}`);
+    }
+  }
+
   async function supprimerTarif(t: TarifClient) {
     if (!confirm("Supprimer ce tarif spécifique ?")) return;
     try {
@@ -331,6 +351,7 @@ export default function FicheClient() {
         <div className="toolbar" style={{ alignItems: "center" }}>
           <span>{selection.length} tarif(s) sélectionné(s)</span>
           <button className="btn" onClick={ouvrirCopieTarifs}>Copier avec un autre type</button>
+          <button className="btn-link" onClick={supprimerTarifsSelectionnes}>Supprimer les tarifs</button>
           <button className="btn-link" onClick={() => setSelection([])}>Désélectionner</button>
         </div>
       )}
