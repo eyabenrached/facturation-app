@@ -109,6 +109,19 @@ export default function FicheClient() {
     setModalTarifOuvert(true);
   }
 
+  // Duplication : ouvre le formulaire d'ajout pré-rempli avec les valeurs du tarif.
+  function ouvrirDuplicationTarif(t: TarifClient) {
+    setTarifEnEdition(null);
+    setFormTarif({
+      circuit_id: t.circuit_id,
+      type_vehicule: t.type_vehicule || "",
+      heure: t.heure_debut || "",
+      prix: t.prix,
+    });
+    setErreurTarif("");
+    setModalTarifOuvert(true);
+  }
+
   async function enregistrerTarif() {
     if (!fiche) return;
     setErreurTarif("");
@@ -218,6 +231,7 @@ export default function FicheClient() {
                   render: (t: TarifClient) => (
                     <>
                       <button className="btn-link" onClick={() => ouvrirEditionTarif(t)}>Modifier</button>
+                      <button className="btn-link" onClick={() => ouvrirDuplicationTarif(t)}>Dupliquer</button>
                       <button className="btn-link" onClick={() => supprimerTarif(t)}>Supprimer</button>
                     </>
                   ),
