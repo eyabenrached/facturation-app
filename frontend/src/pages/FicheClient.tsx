@@ -44,6 +44,11 @@ export default function FicheClient() {
   const [formTarif, setFormTarif] = useState(VIDE_TARIF);
   const [erreurTarif, setErreurTarif] = useState("");
 
+  // ---------- Filtres des tarifs ----------
+  const [filtreTypeTarif, setFiltreTypeTarif] = useState("");
+  const [filtrePrixMin, setFiltrePrixMin] = useState("");
+  const [filtrePrixMax, setFiltrePrixMax] = useState("");
+
   async function charger() {
     if (!id) return;
     setChargement(true);
@@ -168,6 +173,17 @@ export default function FicheClient() {
 
   const { client, tarifs, mouvements, factures } = fiche;
 
+  const tarifsFiltres = tarifs.filter((t) => {
+    if (filtreTypeTarif === "__aucun") {
+      if (t.type_vehicule) return false;
+    } else if (filtreTypeTarif && t.type_vehicule !== filtreTypeTarif) {
+      return false;
+    }
+    if (filtrePrixMin !== "" && t.prix < Number(filtrePrixMin)) return false;
+    if (filtrePrixMax !== "" && t.prix > Number(filtrePrixMax)) return false;
+    return true;
+  });
+
   return (
     <div>
       <div className="page-header">
@@ -216,8 +232,28 @@ export default function FicheClient() {
           <button className="btn" onClick={ouvrirAjoutTarif}>+ Ajouter un tarif</button>
         )}
       </div>
+      <div className="toolbar">
+        <div className="form-field">
+          <label>Type de véhicule</label>
+          <select value={filtreTypeTarif} onChange={(e) => setFiltreTypeTarif(e.target.value)}>
+            <option value="">Tous les types</option>
+            {TYPES_VEHICULE.map((t) => (
+              <option key={t} value={t}>{LABELS_TYPE_VEHICULE[t]}</option>
+            ))}
+            <option value="__aucun">Sans type précis</option>
+          </select>
+        </div>
+        <div className="form-field">
+          <label>Prix min (TND)</label>
+          <input type="number" min="0" step="any" value={filtrePrixMin} onChange={(e) => setFiltrePrixMin(e.target.value)} />
+        </div>
+        <div className="form-field">
+          <label>Prix max (TND)</label>
+          <input type="number" min="0" step="any" value={filtrePrixMax} onChange={(e) => setFiltrePrixMax(e.target.value)} />
+        </div>
+      </div>
       <DataTable
-        rows={tarifs}
+        rows={tarifsFiltres}
         emptyMessage="Aucun tarif spécifique pour ce client."
         columns={[
           { header: "Circuit", render: (t) => (t.circuit ? `${t.circuit.point_depart} → ${t.circuit.point_arrivee}` : "—") },
