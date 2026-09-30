@@ -44,6 +44,13 @@ export default function FicheClient() {
   const [formTarif, setFormTarif] = useState(VIDE_TARIF);
   const [erreurTarif, setErreurTarif] = useState("");
 
+  // ---------- Sélection + copie de tarifs avec un autre type ----------
+  const [selection, setSelection] = useState<number[]>([]);
+  const [modalCopieOuvert, setModalCopieOuvert] = useState(false);
+  const [typeCopie, setTypeCopie] = useState(""); // "" = non choisi, "__tous" = Tous types
+  const [erreurCopie, setErreurCopie] = useState("");
+  const [copieEnCours, setCopieEnCours] = useState(false);
+
   // ---------- Filtres des tarifs ----------
   const [filtreTypeTarif, setFiltreTypeTarif] = useState("");
   const [filtrePrixMin, setFiltrePrixMin] = useState("");
@@ -157,6 +164,64 @@ export default function FicheClient() {
     }
   }
 
+  function basculerSelection(id: number) {
+    setSelection((sel) => (sel.includes(id) ? sel.filter((x) => x !== id) : [...sel, id]));
+  }
+
+  function ouvrirCopieTarifs() {
+    setTypeCopie("");
+    setErreurCopie("");
+    setModalCopieOuvert(true);
+  }
+
+  async function copierTarifsSelectionnes() {
+    if (!fiche) return;
+    if (!typeCopie) {
+      setErreurCopie("Merci de choisir le type de véhicule.");
+      return;
+    }
+    const nouveauType = typeCopie === "__tous" ? null : (typeCopie as TypeVehicule);
+    const aCopier = fiche.tarifs.filter((t) => selection.includes(t.id));
+    setCopieEnCours(true);
+    setErreurCopie("");
+    let ok = 0;
+    let ignores = 0;
+    const echecs: string[] = [];
+    for (const t of aCopier) {
+      if ((t.type_vehicule || null) === nouveauType) {
+        ignores++; // même type que l'original : rien à copier
+        continue;
+      }
+      try {
+        await api.post("/circuits/tarifs/", {
+          client_id: fiche.client.id,
+          circuit_id: t.circuit_id,
+          type_vehicule: nouveauType,
+          heure_debut: t.heure_debut,
+          heure_fin: t.heure_fin,
+          prix: t.prix,
+        });
+        ok++;
+      } catch (e) {
+        echecs.push(`${circuitLabel(t.circuit_id)} : ${(e as Error).message}`);
+      }
+    }
+    setCopieEnCours(false);
+    if (ok > 0) charger();
+    if (echecs.length === 0) {
+      if (ok === 0) {
+        setErreurCopie("Les tarifs sélectionnés ont déjà ce type : rien à copier.");
+        return;
+      }
+      setModalCopieOuvert(false);
+      setSelection([]);
+      return;
+    }
+    setErreurCopie(
+      `${ok} copié(s), ${echecs.length} en échec${ignores ? `, ${ignores} ignoré(s)` : ""} — ${echecs.join(" ; ")}`
+    );
+  }
+
   async function supprimerTarif(t: TarifClient) {
     if (!confirm("Supprimer ce tarif spécifique ?")) return;
     try {
@@ -252,10 +317,41 @@ export default function FicheClient() {
           <input type="number" min="0" step="any" value={filtrePrixMax} onChange={(e) => setFiltrePrixMax(e.target.value)} />
         </div>
       </div>
+      {estAdmin && selection.length > 0 && (
+        <div className="toolbar" style={{ alignItems: "center" }}>
+          <span>{selection.length} tarif(s) sélectionné(s)</span>
+          <button className="btn" onClick={ouvrirCopieTarifs}>Copier avec un autre type</button>
+          <button className="btn-link" onClick={() => setSelection([])}>Désélectionner</button>
+        </div>
+      )}
       <DataTable
         rows={tarifsFiltres}
         emptyMessage="Aucun tarif spécifique pour ce client."
         columns={[
+          ...(estAdmin
+            ? [
+                {
+                  header: (
+                    <input
+                      type="checkbox"
+                      aria-label="Tout sélectionner"
+                      checked={tarifsFiltres.length > 0 && tarifsFiltres.every((t) => selection.includes(t.id))}
+                      onChange={(e) =>
+                        setSelection(e.target.checked ? tarifsFiltres.map((t) => t.id) : [])
+                      }
+                    />
+                  ),
+                  render: (t: TarifClient) => (
+                    <input
+                      type="checkbox"
+                      aria-label="Sélectionner ce tarif"
+                      checked={selection.includes(t.id)}
+                      onChange={() => basculerSelection(t.id)}
+                    />
+                  ),
+                },
+              ]
+            : []),
           { header: "Circuit", render: (t) => (t.circuit ? `${t.circuit.point_depart} → ${t.circuit.point_arrivee}` : "—") },
           { header: "Type véhicule", render: (t) => (t.type_vehicule ? LABELS_TYPE_VEHICULE[t.type_vehicule] : "Tous types") },
           { header: "Heure", render: (t) => (t.heure_debut ? t.heure_debut : "Toute heure") },
@@ -389,6 +485,31 @@ export default function FicheClient() {
       )}
 
       {/* ---------- Modale : ajout / modification d'un tarif spécifique ---------- */}
+      {modalCopieOuvert && (
+        <Modal title="Copier les tarifs avec un autre type" onClose={() => setModalCopieOuvert(false)}>
+          {erreurCopie && <p className="error-msg">{erreurCopie}</p>}
+          <p style={{ marginTop: 0 }}>
+            {selection.length} tarif(s) seront copiés (circuit, heure et prix identiques). Les originaux restent inchangés.
+          </p>
+          <div className="form-field">
+            <label>Nouveau type de véhicule</label>
+            <select value={typeCopie} onChange={(e) => setTypeCopie(e.target.value)}>
+              <option value="">— Sélectionner —</option>
+              {TYPES_VEHICULE.map((t) => (
+                <option key={t} value={t}>{LABELS_TYPE_VEHICULE[t]}</option>
+              ))}
+              <option value="__tous">Tous types</option>
+            </select>
+          </div>
+          <div style={{ marginTop: "1rem", display: "flex", gap: "0.5rem", justifyContent: "flex-end" }}>
+            <button className="btn-link" onClick={() => setModalCopieOuvert(false)}>Annuler</button>
+            <button className="btn" onClick={copierTarifsSelectionnes} disabled={copieEnCours}>
+              {copieEnCours ? "Copie en cours…" : "Copier"}
+            </button>
+          </div>
+        </Modal>
+      )}
+
       {modalTarifOuvert && (
         <Modal
           title={tarifEnEdition ? "Modifier le tarif" : "Ajouter un tarif spécifique"}
