@@ -35,7 +35,7 @@ def next_numero(db: Session = Depends(get_db)):
     return {"numero_suggere": _suggerer_numero(db)}
 
 
-@router.get("/", response_model=list[schemas.FactureOut], dependencies=[Depends(exiger_admin)])
+@router.get("/", response_model=list[schemas.FactureListeOut], dependencies=[Depends(exiger_admin)])
 def liste_factures(
     client_id: int | None = None,
     statut: str | None = None,
@@ -43,11 +43,7 @@ def liste_factures(
     date_au: date | None = None,
     db: Session = Depends(get_db),
 ):
-    q = db.query(models.Facture).options(
-        joinedload(models.Facture.client),
-        joinedload(models.Facture.mouvements).joinedload(models.Mouvement.circuit),
-        joinedload(models.Facture.mouvements).joinedload(models.Mouvement.vehicule),
-    )
+    q = db.query(models.Facture).options(joinedload(models.Facture.client))
     if client_id:
         q = q.filter(models.Facture.client_id == client_id)
     if statut:

@@ -19,12 +19,7 @@ def recap_transporteurs(
     db: Session = Depends(get_db),
 ):
     """Nombre de mouvements (chrono) par heure et par transporteur choisi, sur la période."""
-    q = db.query(models.Mouvement).options(joinedload(models.Mouvement.transporteur))
-    if date_du:
-        q = q.filter(models.Mouvement.date >= date_du)
-    if date_au:
-        q = q.filter(models.Mouvement.date <= date_au)
-    return construire_recap_transporteurs(q.all())
+    return construire_recap_transporteurs(db, models.Mouvement, date_du, date_au)
 
 
 @router.get("/", response_model=list[schemas.MouvementOut], dependencies=[Depends(exiger_utilisateur_connecte)])

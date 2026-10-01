@@ -1,10 +1,20 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { api } from "../api";
 import { Mouvement, Client, Circuit, Chauffeur, Vehicule, Agence, Parametres, TarifClient, TypeVehicule, LABELS_TYPE_VEHICULE } from "../types";
 import { DataTable } from "../components/DataTable";
 import { Modal } from "../components/Modal";
 import { RecapTransporteurs } from "../components/RecapTransporteurs";
 import { useAuth } from "../auth/AuthContext";
+
+function bornesMoisCourant(): { du: string; au: string } {
+  const n = new Date();
+  const fmt = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  return {
+    du: fmt(new Date(n.getFullYear(), n.getMonth(), 1)),
+    au: fmt(new Date(n.getFullYear(), n.getMonth() + 1, 0)),
+  };
+}
 
 const TYPES_VEHICULE_FILTRE: TypeVehicule[] = ["mini_bus", "microbus", "quatre_quatre"];
 
@@ -45,8 +55,9 @@ export default function Mouvements() {
   const [agences, setAgences] = useState<Agence[]>([]);
 
   // Filtres
-  const [dateDu, setDateDu] = useState("");
-  const [dateAu, setDateAu] = useState("");
+  // Par défaut : mois en cours (évite de charger tout l'historique à chaque ouverture).
+  const [dateDu, setDateDu] = useState(() => bornesMoisCourant().du);
+  const [dateAu, setDateAu] = useState(() => bornesMoisCourant().au);
   const [filtreClient, setFiltreClient] = useState("");
   const [filtreCircuit, setFiltreCircuit] = useState("");
   const [filtreStatutMvt, setFiltreStatutMvt] = useState("");
@@ -133,7 +144,11 @@ export default function Mouvements() {
     chargerParametres();
   }, []);
 
+  // Anti-rafale : seule la réponse de la dernière requête est prise en compte.
+  const derniereRequeteMvt = useRef(0);
+
   async function chargerMouvements() {
+    const numero = ++derniereRequeteMvt.current;
     const params = new URLSearchParams();
     if (dateDu) params.set("date_du", dateDu);
     if (dateAu) params.set("date_au", dateAu);
@@ -146,11 +161,14 @@ export default function Mouvements() {
     if (filtreTypeVehicule) params.set("type_vehicule", filtreTypeVehicule);
     if (filtrePrixMin) params.set("prix_min", filtrePrixMin);
     if (filtrePrixMax) params.set("prix_max", filtrePrixMax);
-    setMouvements(await api.get<Mouvement[]>(`/mouvements/?${params.toString()}`));
+    const data = await api.get<Mouvement[]>(`/mouvements/?${params.toString()}`);
+    if (numero === derniereRequeteMvt.current) setMouvements(data);
   }
 
+  // Délai de 350 ms : évite une requête à chaque frappe (prix min/max, dates).
   useEffect(() => {
-    chargerMouvements();
+    const t = setTimeout(() => chargerMouvements(), 350);
+    return () => clearTimeout(t);
   }, [dateDu, dateAu, filtreClient, filtreCircuit, filtreStatutMvt, filtreHeure, filtreTransporteur, filtreChauffeur, filtreTypeVehicule, filtrePrixMin, filtrePrixMax]);
 
   // ---------- Ajout d'un mouvement ----------

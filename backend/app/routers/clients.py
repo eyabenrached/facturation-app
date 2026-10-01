@@ -69,12 +69,19 @@ def fiche_client(client_id: int, db: Session = Depends(get_db)):
     )
     mouvements = (
         db.query(models.Mouvement)
+        .options(
+            joinedload(models.Mouvement.circuit),
+            joinedload(models.Mouvement.chauffeur),
+            joinedload(models.Mouvement.vehicule).joinedload(models.Vehicule.agence),
+            joinedload(models.Mouvement.transporteur),
+        )
         .filter(models.Mouvement.client_id == client_id)
         .order_by(models.Mouvement.date.desc(), models.Mouvement.heure.desc())
         .all()
     )
     factures = (
         db.query(models.Facture)
+        .options(joinedload(models.Facture.client))
         .filter(models.Facture.client_id == client_id)
         .order_by(models.Facture.date_debut.desc())
         .all()

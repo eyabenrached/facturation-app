@@ -3,6 +3,7 @@ from datetime import date
 from collections import defaultdict
 
 from fastapi import APIRouter, Depends
+from sqlalchemy import extract, func
 from sqlalchemy.orm import Session, joinedload
 
 from .. import models
@@ -252,15 +253,26 @@ def benefice_par_mouvement(
 @router.get("/evolution-annuelle", dependencies=[Depends(exiger_admin)])
 def evolution_annuelle(annee: int, db: Session = Depends(get_db)):
     """Revenus, dépenses et bénéfice mois par mois pour l'année donnée."""
+    debut, fin = date(annee, 1, 1), date(annee, 12, 31)
+
+    def _somme_par_mois(colonne_date, colonne_montant) -> dict[int, float]:
+        mois_col = extract("month", colonne_date)
+        lignes = (
+            db.query(mois_col, func.coalesce(func.sum(colonne_montant), 0))
+            .filter(colonne_date >= debut, colonne_date <= fin)
+            .group_by(mois_col)
+            .all()
+        )
+        return {int(m): float(total) for m, total in lignes}
+
+    rev_mvt = _somme_par_mois(models.Mouvement.date, models.Mouvement.prix_applique)
+    rev_loc = _somme_par_mois(models.MouvementLocation.date, models.MouvementLocation.prix)
+    dep = _somme_par_mois(models.Depense.date, models.Depense.montant)
+
     resultats = []
     for mois in range(1, 13):
-        du = date(annee, mois, 1)
-        au = date(annee, mois, monthrange(annee, mois)[1])
-        mouvements, mouvements_location = _charger_mouvements(db, du, au)
-        depenses = _charger_depenses(db, du, au)
-
-        revenus = sum(float(m.prix_applique) for m in mouvements) + sum(float(m.prix) for m in mouvements_location)
-        total_dep = sum(float(d.montant) for d in depenses)
+        revenus = rev_mvt.get(mois, 0.0) + rev_loc.get(mois, 0.0)
+        total_dep = dep.get(mois, 0.0)
 
         resultats.append({
             "mois": mois,

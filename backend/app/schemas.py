@@ -325,6 +325,26 @@ class FactureOut(BaseModel):
     mouvements: list[MouvementOut] = []
 
 
+class FactureListeOut(BaseModel):
+    """Facture sans ses mouvements : utilisée pour la liste (beaucoup plus léger)."""
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    client_id: int
+    numero_facture: str
+    date_debut: date
+    date_fin: date
+    montant_ht: float
+    taux_tva: float
+    montant_tva: float
+    montant_ttc: float
+    timbre: float = 0
+    statut: StatutFacture
+    date_creation: datetime
+    date_paiement: date | None = None
+    type_facture: str = "detaillee"
+    client: ClientOut | None = None
+
+
 class FactureStatutUpdate(BaseModel):
     statut: StatutFacture
     date_paiement: date | None = None
