@@ -82,7 +82,7 @@ def creer_mouvement(payload: schemas.MouvementCreate, db: Session = Depends(get_
         raise HTTPException(400, "Circuit introuvable.")
 
     type_vehicule = type_vehicule_du_vehicule(db, payload.vehicule_id)
-    prix = payload.prix_applique
+    prix = 0.0 if payload.offert else payload.prix_applique
     if prix is None:
         prix = calculer_prix(db, payload.client_id, payload.circuit_id, payload.heure, type_vehicule)
 
@@ -96,11 +96,14 @@ def creer_mouvement(payload: schemas.MouvementCreate, db: Session = Depends(get_
         transporteur_id=payload.transporteur_id,
         nb_personnes=payload.nb_personnes,
         prix_applique=prix,
+        offert=payload.offert,
     )
     db.add(obj)
     # Apprentissage auto : si ce client + circuit n'a encore aucun tarif,
     # le prix saisi ici devient le tarif de référence pour la prochaine fois.
-    apprendre_tarif_si_absent(db, payload.client_id, payload.circuit_id, payload.heure, type_vehicule, prix)
+    # Jamais pour un mouvement offert (sinon le prix 0 deviendrait le tarif du client).
+    if not payload.offert:
+        apprendre_tarif_si_absent(db, payload.client_id, payload.circuit_id, payload.heure, type_vehicule, prix)
     db.commit()
     db.refresh(obj)
     return obj
@@ -126,7 +129,7 @@ def dupliquer_groupe(payload: schemas.MouvementsDupliquerGroupeIn, db: Session =
         # duplication (et non recopié tel quel depuis le mouvement d'origine) :
         # si un tarif a changé entre-temps, la copie reflète le tarif à jour.
         heure = payload.nouvelle_heure or obj.heure
-        prix = calculer_prix(db, obj.client_id, obj.circuit_id, heure, type_vehicule)
+        prix = 0.0 if obj.offert else calculer_prix(db, obj.client_id, obj.circuit_id, heure, type_vehicule)
         nouveaux.append(models.Mouvement(
             date=payload.nouvelle_date,
             heure=heure,
@@ -137,6 +140,7 @@ def dupliquer_groupe(payload: schemas.MouvementsDupliquerGroupeIn, db: Session =
             transporteur_id=obj.transporteur_id,
             nb_personnes=obj.nb_personnes,
             prix_applique=prix,
+            offert=obj.offert,
         ))
     db.add_all(nouveaux)
     db.commit()
@@ -158,7 +162,7 @@ def modifier_mouvement(mouvement_id: int, payload: schemas.MouvementCreate, db: 
         raise HTTPException(400, "Circuit introuvable.")
 
     type_vehicule = type_vehicule_du_vehicule(db, payload.vehicule_id)
-    prix = payload.prix_applique
+    prix = 0.0 if payload.offert else payload.prix_applique
     if prix is None:
         prix = calculer_prix(db, payload.client_id, payload.circuit_id, payload.heure, type_vehicule)
 
@@ -171,9 +175,11 @@ def modifier_mouvement(mouvement_id: int, payload: schemas.MouvementCreate, db: 
     obj.transporteur_id = payload.transporteur_id
     obj.nb_personnes = payload.nb_personnes
     obj.prix_applique = prix
+    obj.offert = payload.offert
 
-    # Apprentissage auto : même logique qu'à la création.
-    apprendre_tarif_si_absent(db, payload.client_id, payload.circuit_id, payload.heure, type_vehicule, prix)
+    # Apprentissage auto : même logique qu'à la création (sauf mouvement offert).
+    if not payload.offert:
+        apprendre_tarif_si_absent(db, payload.client_id, payload.circuit_id, payload.heure, type_vehicule, prix)
     db.commit()
     db.refresh(obj)
     return obj

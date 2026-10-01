@@ -2,7 +2,7 @@ import enum
 from datetime import date, time, datetime
 
 from sqlalchemy import (
-    String, Integer, Date, Time, DateTime, ForeignKey, Numeric, Enum, Text, func
+    String, Integer, Date, Time, DateTime, ForeignKey, Numeric, Enum, Text, Boolean, func
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -131,6 +131,7 @@ class Vehicule(Base):
     )
     ambiance_voyage: Mapped[str | None] = mapped_column(String(100), nullable=True)
     remarque: Mapped[str | None] = mapped_column(Text, nullable=True)
+    nb_places: Mapped[int | None] = mapped_column(nullable=True)
 
     agence: Mapped["Agence"] = relationship(back_populates="vehicules")
     mouvements: Mapped[list["Mouvement"]] = relationship(back_populates="vehicule")
@@ -182,6 +183,8 @@ class Mouvement(Base):
     transporteur_id: Mapped[int | None] = mapped_column(ForeignKey("agences.id"), nullable=True)
     nb_personnes: Mapped[int | None] = mapped_column(nullable=True)
     prix_applique: Mapped[float] = mapped_column(Numeric(10, 3))
+    # Véhicule offert gratuitement (ex : complément de places) : prix = 0, jamais mémorisé comme tarif client.
+    offert: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     facture_id: Mapped[int | None] = mapped_column(ForeignKey("factures.id"), nullable=True)
 
     client: Mapped["Client"] = relationship(back_populates="mouvements")

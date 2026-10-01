@@ -29,6 +29,7 @@ const VIDE_MOUVEMENT = {
   vehicule_id: null as number | null,
   transporteur_id: null as number | null,
   nb_personnes: null as number | null,
+  offert: false,
 };
 
 // Le backend ne renvoie par défaut que les chauffeurs actifs (contrat en
@@ -191,6 +192,7 @@ export default function Mouvements() {
       vehicule_id: m.vehicule_id,
       transporteur_id: m.transporteur_id,
       nb_personnes: m.nb_personnes,
+      offert: m.offert ?? false,
     });
     setPrixSuggere(m.prix_applique);
     setErreurMvt("");
@@ -210,6 +212,7 @@ export default function Mouvements() {
       vehicule_id: m.vehicule_id,
       transporteur_id: m.transporteur_id,
       nb_personnes: m.nb_personnes,
+      offert: m.offert ?? false,
     });
     setPrixSuggere(m.prix_applique);
     setErreurMvt("");
@@ -226,6 +229,7 @@ export default function Mouvements() {
   useEffect(() => {
     if (!modalMvtOuvert) return;
     if (!prixSuggestionActive) return;
+    if (formMvt.offert) return; // véhicule offert : prix = 0, pas de suggestion
     if (!formMvt.client_id || !formMvt.circuit_id || !formMvt.heure) return;
 
     const params = new URLSearchParams();
@@ -247,7 +251,7 @@ export default function Mouvements() {
     return () => {
       annule = true;
     };
-  }, [modalMvtOuvert, prixSuggestionActive, formMvt.client_id, formMvt.circuit_id, formMvt.heure, formMvt.vehicule_id]);
+  }, [modalMvtOuvert, prixSuggestionActive, formMvt.offert, formMvt.client_id, formMvt.circuit_id, formMvt.heure, formMvt.vehicule_id]);
 
   // Tarifs spécifiques du client sélectionné dans le formulaire de mouvement,
   // pour filtrer les circuits proposés et afficher l'horaire/prix connus
@@ -306,20 +310,43 @@ export default function Mouvements() {
     }
   }
 
-  async function enregistrerMouvement() {
+  // Places manquantes : nb de personnes demandé - capacité du véhicule choisi.
+  const vehiculeChoisi = vehicules.find((v) => v.id === formMvt.vehicule_id);
+  const placesManquantes =
+    !formMvt.offert && vehiculeChoisi?.nb_places && formMvt.nb_personnes && formMvt.nb_personnes > vehiculeChoisi.nb_places
+      ? formMvt.nb_personnes - vehiculeChoisi.nb_places
+      : 0;
+
+  async function enregistrerMouvement(ajouterOffert = false) {
     setErreurMvt("");
-    if (prixSuggere === null) {
+    const prixFinal = formMvt.offert ? 0 : prixSuggere;
+    if (prixFinal === null) {
       setErreurMvt("Veuillez sélectionner un prix dans la liste avant d'enregistrer.");
       return;
     }
     try {
+      // Si le mouvement est payant et dépasse la capacité du véhicule, on enregistre
+      // ce mouvement avec le nombre de places réel du véhicule (ex : 26 sur 29 demandés).
+      const manque = ajouterOffert ? placesManquantes : 0;
+      const donnees = {
+        ...formMvt,
+        nb_personnes: manque && vehiculeChoisi?.nb_places ? vehiculeChoisi.nb_places : formMvt.nb_personnes,
+        prix_applique: prixFinal,
+      };
       if (mouvementEnEdition) {
-        await api.put(`/mouvements/${mouvementEnEdition.id}`, { ...formMvt, prix_applique: prixSuggere });
+        await api.put(`/mouvements/${mouvementEnEdition.id}`, donnees);
       } else {
-        await api.post("/mouvements/", { ...formMvt, prix_applique: prixSuggere });
+        await api.post("/mouvements/", donnees);
+      }
+      chargerMouvements();
+      if (manque) {
+        // Nouveau mouvement pré-rempli : même client/circuit/date/heure, véhicule offert pour les places manquantes.
+        setMouvementEnEdition(null);
+        setFormMvt({ ...formMvt, vehicule_id: null, chauffeur_id: null, nb_personnes: manque, offert: true });
+        setPrixSuggere(0);
+        return;
       }
       setModalMvtOuvert(false);
-      chargerMouvements();
     } catch (e) {
       setErreurMvt((e as Error).message);
     }
@@ -560,7 +587,7 @@ export default function Mouvements() {
           { header: "Chauffeur", render: (m) => (m.chauffeur ? `${m.chauffeur.prenom} ${m.chauffeur.nom}` : "—") },
           { header: "Véhicule", render: (m) => m.vehicule?.matricule || "—" },
           { header: "Nb pers.", render: (m) => m.nb_personnes ?? "—" },
-          { header: "Prix", render: (m: Mouvement) => `${m.prix_applique} TND` },
+          { header: "Prix", render: (m: Mouvement) => (m.offert ? "Offert (0 TND)" : `${m.prix_applique} TND`) },
           { header: "Statut", render: (m) => (m.facture_id ? "Facturé" : "Non facturé") },
           {
             header: "Actions",
@@ -661,6 +688,29 @@ export default function Mouvements() {
               />
             </div>
           </div>
+          {placesManquantes > 0 && (
+            <div style={{ background: "#fef3c7", border: "1px solid #f59e0b", borderRadius: 6, padding: "0.6rem 0.75rem", marginBottom: "1rem", fontSize: "0.85rem" }}>
+              ⚠️ Ce véhicule a {vehiculeChoisi?.nb_places} places : il manque <b>{placesManquantes} place(s)</b>.
+              <div style={{ marginTop: "0.4rem" }}>
+                <button type="button" className="btn secondary" onClick={() => enregistrerMouvement(true)}>
+                  Enregistrer et ajouter un véhicule offert ({placesManquantes} places)
+                </button>
+              </div>
+            </div>
+          )}
+          <div className="form-field" style={{ marginBottom: "1rem" }}>
+            <label style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <input
+                type="checkbox"
+                checked={formMvt.offert}
+                onChange={(e) => {
+                  majFormMvt({ offert: e.target.checked });
+                  if (e.target.checked) setPrixSuggere(0);
+                }}
+              />
+              Véhicule offert (gratuit — apparaît sur la facture à 0 TND)
+            </label>
+          </div>
           <div className="form-field" style={{ marginBottom: "1rem" }}>
             <label>
               Prix *{" "}
@@ -674,7 +724,11 @@ export default function Mouvements() {
                 <span style={{ fontWeight: 400, color: "#6b7280" }}>(saisie manuelle — tarifs auto bloqués)</span>
               )}
             </label>
-            {!estAdmin && prixAutoEffectif && prixSuggere !== null ? (
+            {formMvt.offert ? (
+              <div style={{ padding: "0.5rem 0.75rem", border: "1px solid #d1d5db", borderRadius: "6px", background: "#ecfdf5", fontWeight: 600 }}>
+                0 TND (offert)
+              </div>
+            ) : !estAdmin && prixAutoEffectif && prixSuggere !== null ? (
               // Gestionnaire + tarif automatique trouvé : affichage figé, aucune interaction possible.
               <div
                 style={{
@@ -715,7 +769,7 @@ export default function Mouvements() {
           </div>
           <div className="form-actions">
             <button className="btn secondary" onClick={() => setModalMvtOuvert(false)}>Annuler</button>
-            <button className="btn" onClick={enregistrerMouvement}>Enregistrer</button>
+            <button className="btn" onClick={() => enregistrerMouvement()}>Enregistrer</button>
           </div>
         </Modal>
       )}

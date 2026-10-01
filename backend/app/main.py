@@ -68,6 +68,9 @@ def migrer_colonnes_manquantes():
             "ALTER TABLE factures ADD COLUMN IF NOT EXISTS "
             "timbre NUMERIC(6,3) NOT NULL DEFAULT 0"
         ))
+        # Véhicule : nombre de places ; mouvement : véhicule offert gratuitement.
+        conn.execute(text("ALTER TABLE vehicules ADD COLUMN IF NOT EXISTS nb_places INTEGER"))
+        conn.execute(text("ALTER TABLE mouvements ADD COLUMN IF NOT EXISTS offert BOOLEAN NOT NULL DEFAULT FALSE"))
         # Dossiers hôtels : agence et circuit en saisie libre (texte).
         conn.execute(text("ALTER TABLE dossiers_hotels ADD COLUMN IF NOT EXISTS agence_nom VARCHAR(150)"))
         conn.execute(text("ALTER TABLE dossiers_hotels ADD COLUMN IF NOT EXISTS circuit_nom VARCHAR(200)"))

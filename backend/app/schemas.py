@@ -136,6 +136,7 @@ class VehiculeBase(BaseModel):
     type_vehicule: TypeVehicule = TypeVehicule.mini_bus
     ambiance_voyage: str | None = None
     remarque: str | None = None
+    nb_places: int | None = None
 
 
 class VehiculeCreate(VehiculeBase):
@@ -199,6 +200,7 @@ class MouvementBase(BaseModel):
     vehicule_id: int | None = None
     transporteur_id: int | None = None
     nb_personnes: int | None = None
+    offert: bool = False
 
 
 class MouvementCreate(MouvementBase):

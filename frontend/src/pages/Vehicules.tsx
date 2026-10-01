@@ -10,6 +10,7 @@ const VIDE: Omit<Vehicule, "id"> = {
   type_vehicule: "mini_bus",
   ambiance_voyage: "",
   remarque: "",
+  nb_places: null,
 };
 
 const TYPES_VEHICULE: TypeVehicule[] = ["mini_bus", "quatre_quatre", "microbus", "bus"];
@@ -137,6 +138,16 @@ export default function Vehicules() {
               </select>
             </div>
             <div className="form-field">
+              <label>Nombre de places</label>
+              <input
+                type="number"
+                min={1}
+                placeholder="ex. 26"
+                value={form.nb_places ?? ""}
+                onChange={(e) => setForm({ ...form, nb_places: e.target.value ? Number(e.target.value) : null })}
+              />
+            </div>
+            <div className="form-field">
               <label>Ambiance / type de voyage</label>
               <input
                 placeholder="ex. climatisé, VIP, standard"
@@ -189,6 +200,7 @@ export default function Vehicules() {
         columns={[
           { header: "Matricule", render: (v) => v.matricule },
           { header: "Type", render: (v) => LABELS_TYPE_VEHICULE[v.type_vehicule] },
+          { header: "Places", render: (v) => v.nb_places ?? "—" },
           { header: "Agence", render: (v) => v.agence?.nom_agence || "—" },
           { header: "Ambiance", render: (v) => v.ambiance_voyage || "—" },
           { header: "Remarque", render: (v) => v.remarque || "—" },

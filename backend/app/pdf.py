@@ -327,6 +327,8 @@ def _detail_rows(facture, styles):
         else:
             circuit = _safe(getattr(m, "circuit", None))
         designation = f"Transport / location<br/><b>{circuit}</b>"
+        if getattr(m, "offert", False):
+            designation += "<br/><i>Véhicule offert (geste commercial)</i>"
         rows.append([
             Paragraph(_fmt_date(m.date), styles["table_cell"]),
             Paragraph(m.heure.strftime("%H:%M"), styles["table_cell"]),
@@ -347,10 +349,13 @@ def _recap_rows(facture, styles):
         mouvements = groupes[heure]
         total = sum(_prix_mouvement(m) for m in mouvements)
         nb = len(mouvements)
-        unit = total / nb if nb else 0
+        nb_offerts = sum(1 for m in mouvements if getattr(m, "offert", False))
+        nb_payants = nb - nb_offerts
+        unit = total / nb_payants if nb_payants else 0
         heure_txt = heure.strftime("%Hh%M")
+        mention_offert = f"<br/><i>dont {nb_offerts} véhicule(s) offert(s)</i>" if nb_offerts else ""
         rows.append([
-            Paragraph(f"Transport de personnel<br/><b>Départ {heure_txt}</b>", styles["table_cell"]),
+            Paragraph(f"Transport de personnel<br/><b>Départ {heure_txt}</b>{mention_offert}", styles["table_cell"]),
             Paragraph(heure_txt, styles["table_cell_center"]),
             Paragraph(str(nb), styles["table_cell_center"]),
             Paragraph(_fmt_money(unit), styles["table_cell_right"]),

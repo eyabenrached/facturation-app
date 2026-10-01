@@ -45,6 +45,7 @@ export interface Vehicule {
   type_vehicule: TypeVehicule;
   ambiance_voyage: string | null;
   remarque: string | null;
+  nb_places: number | null;
   agence?: Agence;
 }
 
@@ -88,6 +89,7 @@ export interface Mouvement {
   transporteur_id: number | null;
   nb_personnes: number | null;
   prix_applique: number;
+  offert: boolean;
   facture_id: number | null;
   client?: Client;
   circuit?: Circuit;
