@@ -659,4 +659,4 @@ def tableau_de_bord(db: Session, du: date, au: date) -> dict:
         "serie_mensuelle": serie,
         "repartition_charges": repartition,
         "diagnostic": diagnostic(db),
-    }i
+    }
