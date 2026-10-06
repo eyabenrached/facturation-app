@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
 from sqlalchemy.orm import Session, joinedload
 
-from .. import models, schemas
+from .. import compta_service, models, schemas
 from ..database import get_db
 from ..deps import exiger_admin, exiger_utilisateur_connecte
 from ..pdf import generer_facture_pdf, generer_facture_recap_heures_pdf
@@ -107,6 +107,10 @@ def generer_facture(payload: schemas.FactureGenerateRequest, db: Session = Depen
     for m in mouvements:
         m.facture_id = facture.id
 
+    # Comptabilité : écriture de la facture (411 / 706 / TVA / timbre). Sans effet
+    # bloquant : une erreur comptable n'empêche jamais de facturer.
+    compta_service.executer_sans_casser(db, compta_service.sync_facture, facture)
+
     db.commit()
     db.refresh(facture)
     return facture
@@ -123,6 +127,7 @@ def supprimer_facture(facture_id: int, db: Session = Depends(get_db)):
     for m in facture.mouvements:
         m.facture_id = None
 
+    compta_service.executer_sans_casser(db, compta_service.supprimer_facture_compta, "facture", facture.id)
     db.delete(facture)
     db.commit()
 
@@ -134,6 +139,8 @@ def changer_statut(facture_id: int, payload: schemas.FactureStatutUpdate, db: Se
         raise HTTPException(404, "Facture introuvable.")
     facture.statut = payload.statut
     facture.date_paiement = payload.date_paiement
+    # Comptabilité : « payée » crée un règlement pour le reste dû ; « impayée » supprime les règlements.
+    compta_service.executer_sans_casser(db, compta_service.appliquer_statut_legacy, "facture", facture, payload.statut, payload.date_paiement)
     db.commit()
     db.refresh(facture)
     return facture

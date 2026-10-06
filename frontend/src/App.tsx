@@ -20,10 +20,29 @@ import DossiersHotels from "./pages/DossiersHotels";
 import FicheDossierHotel from "./pages/FicheDossierHotel";
 import ReservationsHotels from "./pages/ReservationsHotels";
 import MessagerieWidget from "./components/MessagerieWidget";
+import ComptaDashboard from "./pages/compta/ComptaDashboard";
+import ComptaJournal from "./pages/compta/ComptaJournal";
+import ComptaPlan from "./pages/compta/ComptaPlan";
+import ComptaCreances from "./pages/compta/ComptaCreances";
+import "./pages/compta/compta.css";
 
 function Sidebar({ ouverte, onFermer }: { ouverte: boolean; onFermer: () => void }) {
   const { utilisateur, deconnecter } = useAuth();
   const estAdmin = utilisateur?.role === "administrateur";
+
+  // Sous-menu Comptabilité : ouvert automatiquement quand on est dans /comptabilite/*.
+  const { pathname } = useLocation();
+  const dansCompta = pathname.startsWith("/comptabilite");
+  const [comptaOuverte, setComptaOuverte] = useState(dansCompta);
+  useEffect(() => {
+    if (dansCompta) setComptaOuverte(true);
+  }, [dansCompta]);
+  const liensCompta = [
+    { to: "/comptabilite", label: "Tableau de bord", end: true },
+    { to: "/comptabilite/journal", label: "Journal comptable", end: false },
+    { to: "/comptabilite/plan", label: "Plan comptable", end: false },
+    { to: "/comptabilite/creances", label: "Clients / Créances", end: false },
+  ];
 
   const liensReferentiels = [
     { to: "/chauffeurs", label: "Chauffeurs" },
@@ -66,6 +85,28 @@ function Sidebar({ ouverte, onFermer }: { ouverte: boolean; onFermer: () => void
           <NavLink to="/finances" className={({ isActive }) => (isActive ? "active" : "")}>
             Finances
           </NavLink>
+        )}
+        {estAdmin && (
+          <>
+            <button
+              type="button"
+              className={`nav-group-btn${dansCompta ? " actif" : ""}`}
+              onClick={(e) => { e.stopPropagation(); setComptaOuverte((v) => !v); }}
+              aria-expanded={comptaOuverte}
+            >
+              <span>📊 Comptabilité</span>
+              <span className="nav-caret">{comptaOuverte ? "▾" : "▸"}</span>
+            </button>
+            {comptaOuverte && (
+              <div className="nav-sub">
+                {liensCompta.map((l) => (
+                  <NavLink key={l.to} to={l.to} end={l.end} className={({ isActive }) => (isActive ? "active" : "")}>
+                    {l.label}
+                  </NavLink>
+                ))}
+              </div>
+            )}
+          </>
         )}
         <NavLink to="/mouvements-location" className={({ isActive }) => (isActive ? "active" : "")}>
           Mouvements Location
@@ -144,6 +185,10 @@ function RoutesProtegees() {
           {estAdmin && <Route path="/factures" element={<Factures />} />}
           {estAdmin && <Route path="/depenses" element={<Depenses />} />}
           {estAdmin && <Route path="/finances" element={<Finances />} />}
+          {estAdmin && <Route path="/comptabilite" element={<ComptaDashboard />} />}
+          {estAdmin && <Route path="/comptabilite/journal" element={<ComptaJournal />} />}
+          {estAdmin && <Route path="/comptabilite/plan" element={<ComptaPlan />} />}
+          {estAdmin && <Route path="/comptabilite/creances" element={<ComptaCreances />} />}
           <Route path="/mouvements-location" element={<MouvementsLocation />} />
           <Route path="/hotels" element={<Hotels />} />
           <Route path="/dossiers-hotels" element={<DossiersHotels />} />

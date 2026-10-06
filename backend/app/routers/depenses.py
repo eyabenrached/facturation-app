@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
 
-from .. import models, schemas
+from .. import compta_service, models, schemas
 from ..database import get_db
 from ..deps import exiger_admin
 
@@ -45,6 +45,8 @@ def liste_depenses(
 def creer_depense(payload: schemas.DepenseCreate, db: Session = Depends(get_db)):
     obj = models.Depense(**payload.model_dump())
     db.add(obj)
+    db.flush()
+    compta_service.executer_sans_casser(db, compta_service.sync_depense, obj)
     db.commit()
     db.refresh(obj)
     return obj
@@ -57,6 +59,8 @@ def modifier_depense(depense_id: int, payload: schemas.DepenseCreate, db: Sessio
         raise HTTPException(404, "Dépense introuvable.")
     for k, v in payload.model_dump().items():
         setattr(obj, k, v)
+    db.flush()
+    compta_service.executer_sans_casser(db, compta_service.sync_depense, obj)
     db.commit()
     db.refresh(obj)
     return obj
@@ -67,5 +71,6 @@ def supprimer_depense(depense_id: int, db: Session = Depends(get_db)):
     obj = db.query(models.Depense).get(depense_id)
     if not obj:
         raise HTTPException(404, "Dépense introuvable.")
+    compta_service.executer_sans_casser(db, compta_service.supprimer_source, "depense", obj.id)
     db.delete(obj)
     db.commit()

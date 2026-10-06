@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
 from sqlalchemy.orm import Session, joinedload
 
-from .. import models, schemas
+from .. import compta_service, models, schemas
 from ..database import get_db
 from ..deps import exiger_admin
 from ..pdf import generer_facture_location_pdf
@@ -96,6 +96,8 @@ def generer_facture_location(payload: schemas.FactureLocationGenerateRequest, db
     for m in mouvements:
         m.facture_id = facture.id
 
+    compta_service.executer_sans_casser(db, compta_service.sync_facture_location, facture)
+
     db.commit()
     db.refresh(facture)
     return facture
@@ -110,6 +112,7 @@ def supprimer_facture_location(facture_id: int, db: Session = Depends(get_db)):
     for m in facture.mouvements:
         m.facture_id = None
 
+    compta_service.executer_sans_casser(db, compta_service.supprimer_facture_compta, "location", facture.id)
     db.delete(facture)
     db.commit()
 
@@ -121,6 +124,7 @@ def changer_statut(facture_id: int, payload: schemas.FactureStatutUpdate, db: Se
         raise HTTPException(404, "Facture introuvable.")
     facture.statut = payload.statut
     facture.date_paiement = payload.date_paiement
+    compta_service.executer_sans_casser(db, compta_service.appliquer_statut_legacy, "location", facture, payload.statut, payload.date_paiement)
     db.commit()
     db.refresh(facture)
     return facture

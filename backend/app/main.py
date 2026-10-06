@@ -5,11 +5,13 @@ from sqlalchemy import text
 
 from .database import Base, engine, SessionLocal
 from . import models  # noqa: F401 (nécessaire pour enregistrer les tables)
+from . import models_compta  # noqa: F401 (tables du module Comptabilité)
+from . import compta_service
 from .security import hash_password
 from .routers import (
     chauffeurs, clients, agences, vehicules, circuits, mouvements, mouvements_location,
     factures, factures_location, auth, utilisateurs, dashboard, depenses, finances, parametres,
-    messagerie, hotels, dossiers_hotels, reservations_hotels,
+    messagerie, hotels, dossiers_hotels, reservations_hotels, comptabilite,
 )
 
 app = FastAPI(title="API Facturation Transport", version="1.0.0")
@@ -84,6 +86,15 @@ def migrer_colonnes_manquantes():
         ))
 
 
+def initialiser_comptabilite():
+    """Plan comptable par défaut (uniquement si la table est vide) + comptes système.
+    Ne doit jamais empêcher le démarrage de l'application."""
+    try:
+        compta_service.initialiser_plan_comptable()
+    except Exception as exc:  # noqa: BLE001
+        print(f"[WARN] Initialisation du plan comptable impossible : {exc}")
+
+
 def creer_canal_general():
     """Crée le canal général de la messagerie interne s'il n'existe pas
     encore, et y ajoute tout utilisateur actif qui n'en est pas déjà
@@ -128,6 +139,7 @@ def on_startup():
     Base.metadata.create_all(bind=engine)
     migrer_colonnes_manquantes()
     creer_admin_par_defaut()
+    initialiser_comptabilite()
     creer_canal_general()
     desactiver_chauffeurs_expires_au_demarrage()
 
@@ -151,6 +163,7 @@ app.include_router(messagerie.router)
 app.include_router(hotels.router)
 app.include_router(dossiers_hotels.router)
 app.include_router(reservations_hotels.router)
+app.include_router(comptabilite.router)
 
 
 @app.get("/")
