@@ -67,6 +67,12 @@ def initialiser_plan_comptable() -> None:
         except Exception:  # noqa: BLE001
             db.rollback()
             logger.exception("Reprise des règlements historiques impossible (sera retentée par le rattrapage)")
+        # Écritures d'émission des factures (411 / 706 / TVA / timbre) : idempotent.
+        try:
+            rattraper_emissions(db)
+        except Exception:  # noqa: BLE001
+            db.rollback()
+            logger.exception("Génération des écritures de facture impossible (sera retentée par le rattrapage)")
     finally:
         db.close()
 
@@ -123,6 +129,8 @@ def prochain_numero_piece(db: Session, journal: str, annee: int) -> str:
         .scalar()
     )
     n = int(dernier[len(prefixe):]) + 1 if dernier and dernier[len(prefixe):].isdigit() else 1
+    while db.query(EcritureComptable.id).filter(EcritureComptable.numero_piece == f"{prefixe}{n:04d}").first():
+        n += 1
     return f"{prefixe}{n:04d}"
 
 
@@ -523,6 +531,19 @@ def rattrapage(db: Session) -> dict:
     return total
 
 
+def rattraper_emissions(db: Session) -> int:
+    """Crée les écritures de vente (journal VT) manquantes des factures et factures de location.
+    Idempotent : une facture qui a déjà son écriture est ignorée."""
+    n = 0
+    for modele, sync in ((models.Facture, sync_facture), (models.FactureLocation, sync_facture_location)):
+        ids = [i for (i,) in db.query(modele.id).order_by(modele.id).all()]
+        for obj in db.query(modele).filter(modele.id.in_(ids)).all() if ids else []:
+            r = executer_sans_casser(db, sync, obj)
+            n += (r or {}).get("emission", 0)
+        db.commit()
+    return n
+
+
 def sync_depense_si_absente(db: Session, d: models.Depense) -> dict:
     """Variante pour le rattrapage : ne touche pas une dépense déjà comptabilisée."""
     if _existe(db, "depense", d.id, "charge"):
@@ -638,4 +659,4 @@ def tableau_de_bord(db: Session, du: date, au: date) -> dict:
         "serie_mensuelle": serie,
         "repartition_charges": repartition,
         "diagnostic": diagnostic(db),
-    }
+    }i
