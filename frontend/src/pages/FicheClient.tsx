@@ -56,6 +56,8 @@ export default function FicheClient() {
   const [filtreTypeTarif, setFiltreTypeTarif] = useState("");
   const [filtrePrixMin, setFiltrePrixMin] = useState("");
   const [filtrePrixMax, setFiltrePrixMax] = useState("");
+  const [rechercheTarif, setRechercheTarif] = useState("");
+  const [filtreHeureTarif, setFiltreHeureTarif] = useState(""); // "" = toutes, "__toute" = sans heure précise
 
   async function charger() {
     if (!id) return;
@@ -266,7 +268,27 @@ export default function FicheClient() {
 
   const { client, tarifs, mouvements, factures } = fiche;
 
+  const heuresTarifs = Array.from(
+    new Set(tarifs.map((t) => (t.heure_debut ? t.heure_debut.slice(0, 5) : "")).filter(Boolean))
+  ).sort();
+  const aDesTarifsToutesHeures = tarifs.some((t) => !t.heure_debut);
+  const termeRecherche = rechercheTarif.trim().toLowerCase();
+
   const tarifsFiltres = tarifs.filter((t) => {
+    if (termeRecherche) {
+      const texte = [
+        circuitLabel(t.circuit_id),
+        t.type_vehicule ? LABELS_TYPE_VEHICULE[t.type_vehicule] : "",
+        t.heure_debut || "Toute heure",
+        String(t.prix),
+      ].join(" ").toLowerCase();
+      if (!termeRecherche.split(/\s+/).every((mot) => texte.includes(mot))) return false;
+    }
+    if (filtreHeureTarif === "__toute") {
+      if (t.heure_debut) return false;
+    } else if (filtreHeureTarif && (t.heure_debut || "").slice(0, 5) !== filtreHeureTarif) {
+      return false;
+    }
     if (filtreTypeTarif === "__aucun") {
       if (t.type_vehicule) return false;
     } else if (filtreTypeTarif && t.type_vehicule !== filtreTypeTarif) {
@@ -328,6 +350,25 @@ export default function FicheClient() {
         )}
       </div>
       <div className="toolbar">
+        <div className="form-field" style={{ flex: 1, minWidth: 220 }}>
+          <label>Recherche</label>
+          <input
+            type="search"
+            placeholder="Rechercher un circuit, un lieu, un prix…"
+            value={rechercheTarif}
+            onChange={(e) => setRechercheTarif(e.target.value)}
+          />
+        </div>
+        <div className="form-field">
+          <label>Heure</label>
+          <select value={filtreHeureTarif} onChange={(e) => setFiltreHeureTarif(e.target.value)}>
+            <option value="">Toutes les heures</option>
+            {heuresTarifs.map((h) => (
+              <option key={h} value={h}>{h}</option>
+            ))}
+            {aDesTarifsToutesHeures && <option value="__toute">Toute heure</option>}
+          </select>
+        </div>
         <div className="form-field">
           <label>Type de véhicule</label>
           <select value={filtreTypeTarif} onChange={(e) => setFiltreTypeTarif(e.target.value)}>
