@@ -361,27 +361,62 @@ def _detail_rows(facture, styles):
     return rows
 
 
+def _valeur_type(vehicule) -> str | None:
+    if not vehicule:
+        return None
+    t = vehicule.type_vehicule
+    return getattr(t, "value", t)
+
+
+def _type_facture(m):
+    """Type de véhicule tel que facturé, et type réellement fourni si c'est un remplacement.
+
+    Remplacement facturé au prix du véhicule demandé : la ligne figure sous le type demandé
+    (c'est le prix que le client a commandé), avec la mention du véhicule réellement fourni."""
+    fourni = _valeur_type(getattr(m, "vehicule", None))
+    demande = getattr(m, "type_vehicule_demande", None)
+    demande = getattr(demande, "value", demande)
+    if demande and fourni and demande != fourni and (getattr(m, "mode_prix_remplacement", None) or "demande") == "demande":
+        return demande, fourni
+    return fourni, None
+
+
 def _recap_rows(facture, styles):
+    """Une ligne par départ (heure), par type de véhicule et par prix unitaire.
+    Exemple : « 14 × Mini bus à 120 » ; « 5 × Mini bus à 100 » ; « 5 × Microbus à 80 »."""
     groupes = {}
     for m in facture.mouvements:
-        groupes.setdefault(m.heure, []).append(m)
+        offert = bool(getattr(m, "offert", False))
+        type_val, fourni = _type_facture(m)
+        prix = 0.0 if offert else round(_prix_mouvement(m), 3)
+        cle = (m.heure, type_val or "", prix, offert)
+        g = groupes.setdefault(cle, {"nb": 0, "remplaces": {}})
+        g["nb"] += 1
+        if fourni:
+            g["remplaces"][fourni] = g["remplaces"].get(fourni, 0) + 1
+
+    def ordre(cle):
+        heure, type_val, prix, offert = cle
+        return (heure, offert, LABELS_TYPE_VEHICULE.get(type_val, type_val or "zzz"), -prix)
 
     rows = []
-    for heure in sorted(groupes):
-        mouvements = groupes[heure]
-        total = sum(_prix_mouvement(m) for m in mouvements)
-        nb = len(mouvements)
-        nb_offerts = sum(1 for m in mouvements if getattr(m, "offert", False))
-        nb_payants = nb - nb_offerts
-        unit = total / nb_payants if nb_payants else 0
+    for cle in sorted(groupes, key=ordre):
+        heure, type_val, prix, offert = cle
+        g = groupes[cle]
+        nb = g["nb"]
         heure_txt = heure.strftime("%Hh%M")
-        mention_offert = f"<br/><i>dont {nb_offerts} véhicule(s) offert(s)</i>" if nb_offerts else ""
+        label_type = LABELS_TYPE_VEHICULE.get(type_val, type_val) if type_val else "Véhicule non précisé"
+        mentions = ""
+        if offert:
+            mentions += "<br/><i>Véhicule offert (geste commercial)</i>"
+        for fourni, n in sorted(g["remplaces"].items()):
+            mentions += f"<br/><i>dont {n} remplacé(s) par {LABELS_TYPE_VEHICULE.get(fourni, fourni)}</i>"
         rows.append([
-            Paragraph(f"Transport de personnel<br/><b>Départ {heure_txt}</b>{mention_offert}", styles["table_cell"]),
+            Paragraph(f"<b>Départ {heure_txt} — {_safe(label_type)}</b>{mentions}", styles["table_cell"]),
             Paragraph(heure_txt, styles["table_cell_center"]),
             Paragraph(str(nb), styles["table_cell_center"]),
-            Paragraph(_fmt_money(unit), styles["table_cell_right"]),
-            Paragraph(_fmt_money(total), styles["table_cell_right_bold"]),
+            Paragraph("Offert" if offert else _fmt_money(prix), styles["table_cell_right"]),
+            Paragraph(_fmt_money(prix * nb), styles["table_cell_right_bold"]),
         ])
     return rows
 
@@ -390,7 +425,7 @@ def _table_facture(facture, recap: bool, styles):
     if recap:
         headers = ["DÉSIGNATION", "SHIFT / PÉRIODE", "NB NAVETTES", "PRIX UNIT. (DT)", "MONTANT (DT)"]
         rows = _recap_rows(facture, styles)
-        widths = [49 * mm, 34 * mm, 37 * mm, 27 * mm, 27 * mm]
+        widths = [68 * mm, 22 * mm, 26 * mm, 29 * mm, 29 * mm]
     else:
         headers = ["DATE", "HEURE", "CIRCUIT", "VÉHICULE", "PRIX (DT)"]
         rows = _detail_rows(facture, styles)
@@ -409,8 +444,10 @@ def _table_facture(facture, recap: bool, styles):
         ("RIGHTPADDING", (0, 0), (-1, -1), 3 * mm),
         ("TOPPADDING", (0, 0), (-1, 0), 3.2 * mm),
         ("BOTTOMPADDING", (0, 0), (-1, 0), 3.2 * mm),
-        ("TOPPADDING", (0, 1), (-1, -1), 3 * mm),
-        ("BOTTOMPADDING", (0, 1), (-1, -1), 3 * mm),
+        # Le récapitulatif compte plusieurs lignes par départ (une par type de véhicule et par prix) :
+        # lignes plus compactes pour que le tableau tienne sur la page avec les totaux.
+        ("TOPPADDING", (0, 1), (-1, -1), (1.8 if recap else 3) * mm),
+        ("BOTTOMPADDING", (0, 1), (-1, -1), (1.8 if recap else 3) * mm),
     ]))
     return table
 
@@ -604,7 +641,7 @@ def _build_invoice_pdf(facture: models.Facture, *, recap: bool) -> bytes:
         Spacer(1, 4 * mm),
         _signature_area(styles),
         Spacer(1, 1.5 * mm),
-        _bank_info(base),
+        KeepTogether([_bank_info(base)]),  # ne jamais séparer le nom de la banque de son RIB
     ]
 
     doc.build(elements, canvasmaker=_CanvasNumerote)
