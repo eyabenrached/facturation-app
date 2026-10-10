@@ -12,12 +12,16 @@ from sqlalchemy import func, or_
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 from .. import compta_export, compta_service as svc, compta_tiers
-from ..compta_plan import JOURNAUX, TYPES_OPERATION
+from ..compta_plan import (
+    DEVISES, DOSSIERS_AUTO, DOSSIERS_MANUELS, JOURNAUX, LABELS_DOSSIER, ORIGINE_AUTO, ORIGINE_MANUELLE, TYPES_OPERATION,
+)
 from ..database import get_db
 from ..deps import exiger_admin
-from ..models import Utilisateur
+from ..models import Agence, Client, Hotel, Utilisateur
 from ..models_compta import CompteComptable, EcritureComptable, LigneEcriture
-from ..schemas_compta import CompteIn, EcritureIn, PaiementIn
+from ..schemas_compta import (
+    ClotureIn, CompteIn, EcritureIn, MouvementTresorerieIn, PaiementIn, RegularisationIn, SoldeInitialIn,
+)
 
 router = APIRouter(prefix="/comptabilite", tags=["Comptabilité"], dependencies=[Depends(exiger_admin)])
 
@@ -116,25 +120,62 @@ def basculer_compte(compte_id: int, db: Session = Depends(get_db)):
 
 
 # ---------------------------------------------------------------------- journal
-def _ecriture_out(e: EcritureComptable) -> dict:
+def _ecriture_out(e: EcritureComptable, regularisee_par: str | None = None) -> dict:
     td = sum(float(l.debit) for l in e.lignes)
     tc = sum(float(l.credit) for l in e.lignes)
-    auto = e.source_type is not None
+    auto = e.origine == ORIGINE_AUTO
     return {
         "id": e.id, "date": e.date.isoformat(), "numero_piece": e.numero_piece, "journal": e.journal,
         "libelle": e.libelle, "reference": e.reference, "type_operation": e.type_operation,
-        "automatique": auto, "cloturee": e.cloturee, "modifiable": not auto and not e.cloturee,
+        "automatique": auto, "origine": e.origine, "dossier": e.dossier, "dossier_label": LABELS_DOSSIER.get(e.dossier or "", ""),
+        "tiers": e.tiers, "observation": e.observation,
+        "utilisateur": e.utilisateur.nom if e.utilisateur else None,
+        "date_creation": e.date_creation.isoformat() if e.date_creation else None,
+        "regularise_id": e.regularise_id, "regularisee_par": regularisee_par,
+        "cloturee": e.cloturee,
+        "modifiable": (not auto) and (not e.cloturee) and e.type_operation != "solde_initial",
         "total_debit": round(td, 3), "total_credit": round(tc, 3),
         "lignes": [
             {"id": l.id, "compte_id": l.compte_id, "compte_numero": l.compte.numero, "compte_libelle": l.compte.libelle,
-             "compte_auxiliaire": l.compte_auxiliaire, "libelle": l.libelle, "debit": float(l.debit), "credit": float(l.credit)}
+             "compte_auxiliaire": l.compte_auxiliaire, "libelle": l.libelle, "debit": float(l.debit), "credit": float(l.credit),
+             "devise": l.devise, "montant_devise": float(l.montant_devise) if l.montant_devise is not None else None,
+             "taux_change": float(l.taux_change) if l.taux_change is not None else None}
             for l in e.lignes
         ],
     }
 
 
-def _requete_ecritures(db: Session, q, date_du, date_au, compte_id, type_operation, journal):
+def _sorties(db: Session, ecritures: list[EcritureComptable]) -> list[dict]:
+    """Sérialise des écritures en indiquant, pour chacune, la régularisation qui l'a corrigée."""
+    ids = [e.id for e in ecritures]
+    corrigees = {}
+    if ids:
+        corrigees = dict(
+            db.query(EcritureComptable.regularise_id, EcritureComptable.numero_piece)
+            .filter(EcritureComptable.regularise_id.in_(ids)).all()
+        )
+    return [_ecriture_out(e, corrigees.get(e.id)) for e in ecritures]
+
+
+def _requete_ecritures(db: Session, q, date_du, date_au, compte_id, type_operation, journal,
+                       origine=None, dossier=None, categorie=None, devise=None):
     req = db.query(EcritureComptable)
+    if devise:
+        req = req.filter(EcritureComptable.lignes.any(LigneEcriture.devise == devise.upper()))
+    if origine:
+        req = req.filter(EcritureComptable.origine == origine)
+    if dossier:
+        req = req.filter(EcritureComptable.dossier == dossier)
+    if categorie:  # dossier de la comptabilité automatique
+        cfg = DOSSIERS_AUTO.get(categorie)
+        if not cfg:
+            raise HTTPException(400, "Dossier automatique inconnu.")
+        req = req.filter(EcritureComptable.origine == ORIGINE_AUTO)
+        if categorie == "autres":
+            connus = [t for d in DOSSIERS_AUTO.values() for t in d["types"]]
+            req = req.filter(EcritureComptable.type_operation.not_in(connus))
+        else:
+            req = req.filter(EcritureComptable.type_operation.in_(cfg["types"]))
     if date_du:
         req = req.filter(EcritureComptable.date >= date_du)
     if date_au:
@@ -149,6 +190,7 @@ def _requete_ecritures(db: Session, q, date_du, date_au, compte_id, type_operati
         motif = f"%{q.strip()}%"
         req = req.filter(or_(
             EcritureComptable.libelle.ilike(motif), EcritureComptable.numero_piece.ilike(motif), EcritureComptable.reference.ilike(motif),
+            EcritureComptable.tiers.ilike(motif), EcritureComptable.observation.ilike(motif),
             EcritureComptable.lignes.any(or_(
                 LigneEcriture.compte_auxiliaire.ilike(motif), LigneEcriture.libelle.ilike(motif),
                 LigneEcriture.compte.has(CompteComptable.numero.ilike(f"{q.strip()}%")),
@@ -162,10 +204,11 @@ def _requete_ecritures(db: Session, q, date_du, date_au, compte_id, type_operati
 def liste_ecritures(
     q: str | None = None, date_du: date | None = None, date_au: date | None = None, compte_id: int | None = None,
     type_operation: str | None = None, journal: str | None = None, page: int = 1, taille: int = 25,
+    origine: str | None = None, dossier: str | None = None, categorie: str | None = None, devise: str | None = None,
     db: Session = Depends(get_db),
 ):
     page, taille = max(page, 1), min(max(taille, 1), 200)
-    req = _requete_ecritures(db, q, date_du, date_au, compte_id, type_operation, journal)
+    req = _requete_ecritures(db, q, date_du, date_au, compte_id, type_operation, journal, origine, dossier, categorie, devise)
     total = req.count()
     ids_sous_requete = req.with_entities(EcritureComptable.id).statement
     td, tc = db.query(func.coalesce(func.sum(LigneEcriture.debit), 0), func.coalesce(func.sum(LigneEcriture.credit), 0)).filter(
@@ -175,9 +218,9 @@ def liste_ecritures(
         .order_by(EcritureComptable.date.desc(), EcritureComptable.id.desc())
         .offset((page - 1) * taille).limit(taille).all()
     )
-    return {"items": [_ecriture_out(e) for e in items], "total": total, "page": page, "taille": taille,
+    return {"items": _sorties(db, items), "total": total, "page": page, "taille": taille,
             "total_debit": float(td), "total_credit": float(tc),
-            "journaux": JOURNAUX, "types": TYPES_OPERATION}
+            "journaux": JOURNAUX, "types": TYPES_OPERATION, "dossiers": LABELS_DOSSIER}
 
 
 def _charger(db: Session, ecriture_id: int) -> EcritureComptable:
@@ -190,22 +233,31 @@ def _charger(db: Session, ecriture_id: int) -> EcritureComptable:
 def _verifier_modifiable(e: EcritureComptable):
     if e.cloturee:
         raise HTTPException(400, "Cette écriture appartient à une période clôturée : elle ne peut plus être modifiée ni supprimée.")
-    if e.source_type is not None:
-        raise HTTPException(400, "Cette écriture est générée automatiquement par l'application : modifiez la facture, le paiement ou la dépense d'origine.")
+    if e.origine == ORIGINE_AUTO:
+        raise HTTPException(
+            400,
+            "Cette écriture est générée automatiquement : elle ne se modifie pas. "
+            "Modifiez la facture, le paiement ou la dépense d'origine, ou créez une écriture de régularisation.",
+        )
+    if e.type_operation == "solde_initial":
+        raise HTTPException(400, "Le solde initial se modifie depuis le dossier de trésorerie (bouton « Solde initial »).")
 
 
 @router.post("/ecritures", status_code=201)
 def creer_ecriture(payload: EcritureIn, db: Session = Depends(get_db), user: Utilisateur = Depends(exiger_admin)):
+    if not payload.dossier:
+        raise HTTPException(400, "Choisissez le dossier de la comptabilité manuelle (Clients, Fournisseurs, Banque 1, Banque 2 ou Caisse).")
     try:
-        e = svc.creer_ecriture(
-            db, date_ecriture=payload.date, libelle=payload.libelle, lignes=[l.model_dump() for l in payload.lignes],
-            journal=payload.journal, reference=payload.reference, numero_piece=payload.numero_piece, utilisateur_id=user.id,
+        e = svc.creer_ecriture_manuelle(
+            db, dossier=payload.dossier, date_ecriture=payload.date, libelle=payload.libelle,
+            lignes=[l.model_dump() for l in payload.lignes], journal=payload.journal, reference=payload.reference,
+            numero_piece=payload.numero_piece, tiers=payload.tiers, observation=payload.observation, utilisateur_id=user.id,
         )
         db.commit()
     except svc.ComptaError as err:
         db.rollback()
         raise _erreur(err)
-    return _ecriture_out(_charger(db, e.id))
+    return _sorties(db, [_charger(db, e.id)])[0]
 
 
 @router.put("/ecritures/{ecriture_id}")
@@ -217,7 +269,16 @@ def modifier_ecriture(ecriture_id: int, payload: EcritureIn, db: Session = Depen
     if not payload.libelle.strip():
         raise HTTPException(400, "Le libellé de l'écriture est obligatoire.")
     try:
+        svc.verifier_periode_ouverte(db, payload.date)
         svc.remplacer_lignes(db, e, [l.model_dump() for l in payload.lignes])
+        if payload.dossier:
+            e.dossier = payload.dossier
+        e.tiers = (payload.tiers or "").strip()[:150] or None
+        e.observation = (payload.observation or "").strip()[:500] or None
+        db.flush()
+        db.refresh(e)
+        if e.dossier:
+            svc.controler_dossier(e, e.dossier, e.type_operation)
         e.date, e.libelle, e.journal = payload.date, payload.libelle.strip()[:255], payload.journal
         e.reference = (payload.reference or "").strip()[:100] or None
         if payload.numero_piece and payload.numero_piece.strip():
@@ -226,7 +287,7 @@ def modifier_ecriture(ecriture_id: int, payload: EcritureIn, db: Session = Depen
     except svc.ComptaError as err:
         db.rollback()
         raise _erreur(err)
-    return _ecriture_out(_charger(db, ecriture_id))
+    return _sorties(db, [_charger(db, ecriture_id)])[0]
 
 
 @router.delete("/ecritures/{ecriture_id}", status_code=204)
@@ -238,8 +299,8 @@ def supprimer_ecriture(ecriture_id: int, db: Session = Depends(get_db)):
 
 
 # ---------------------------------------------------------------------- exports
-def _export_donnees(db, q, date_du, date_au, compte_id, type_operation, journal):
-    req = _requete_ecritures(db, q, date_du, date_au, compte_id, type_operation, journal)
+def _export_donnees(db, q, date_du, date_au, compte_id, type_operation, journal, origine=None, dossier=None, categorie=None):
+    req = _requete_ecritures(db, q, date_du, date_au, compte_id, type_operation, journal, origine, dossier, categorie)
     if req.count() > 20000:
         raise HTTPException(400, "Trop d'écritures pour un export : affinez la période (maximum 20 000).")
     ecritures = (
@@ -255,8 +316,9 @@ def _export_donnees(db, q, date_du, date_au, compte_id, type_operation, journal)
 
 @router.get("/ecritures/export/xlsx")
 def export_xlsx(q: str | None = None, date_du: date | None = None, date_au: date | None = None, compte_id: int | None = None,
-                type_operation: str | None = None, journal: str | None = None, db: Session = Depends(get_db)):
-    ecritures, titre = _export_donnees(db, q, date_du, date_au, compte_id, type_operation, journal)
+                type_operation: str | None = None, journal: str | None = None, origine: str | None = None,
+                dossier: str | None = None, categorie: str | None = None, db: Session = Depends(get_db)):
+    ecritures, titre = _export_donnees(db, q, date_du, date_au, compte_id, type_operation, journal, origine, dossier, categorie)
     return Response(
         content=compta_export.journal_xlsx(ecritures, titre),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -266,8 +328,9 @@ def export_xlsx(q: str | None = None, date_du: date | None = None, date_au: date
 
 @router.get("/ecritures/export/pdf")
 def export_pdf(q: str | None = None, date_du: date | None = None, date_au: date | None = None, compte_id: int | None = None,
-               type_operation: str | None = None, journal: str | None = None, db: Session = Depends(get_db)):
-    ecritures, titre = _export_donnees(db, q, date_du, date_au, compte_id, type_operation, journal)
+               type_operation: str | None = None, journal: str | None = None, origine: str | None = None,
+                dossier: str | None = None, categorie: str | None = None, db: Session = Depends(get_db)):
+    ecritures, titre = _export_donnees(db, q, date_du, date_au, compte_id, type_operation, journal, origine, dossier, categorie)
     return Response(
         content=compta_export.journal_pdf(ecritures, titre),
         media_type="application/pdf",
@@ -329,3 +392,113 @@ def supprimer_paiement(paiement_id: int, db: Session = Depends(get_db)):
     except svc.ComptaError as err:
         db.rollback()
         raise _erreur(err)
+
+
+# =====================================================================
+# ORGANISATION EN DOSSIERS
+# =====================================================================
+@router.get("/automatique/dossiers")
+def dossiers_automatiques(db: Session = Depends(get_db)):
+    return {"dossiers": svc.resume_dossiers_auto(db), "diagnostic": svc.diagnostic(db)}
+
+
+@router.get("/manuel/dossiers")
+def dossiers_manuels(db: Session = Depends(get_db)):
+    return {"dossiers": svc.resume_dossiers_manuels(db), "devises": DEVISES}
+
+
+@router.get("/manuel/tresorerie/{dossier}")
+def tresorerie(dossier: str, db: Session = Depends(get_db)):
+    try:
+        return svc.resume_tresorerie(db, dossier)
+    except svc.ComptaError as err:
+        raise _erreur(err)
+
+
+@router.get("/manuel/tiers")
+def tiers_suggeres(dossier: str, db: Session = Depends(get_db)):
+    """Noms proposés à la saisie : tables existantes (clients, hôtels, transporteurs) + tiers déjà utilisés."""
+    if dossier == "client":
+        noms = {n for (n,) in db.query(Client.nom_societe).all()}
+    elif dossier == "fournisseur":
+        noms = {n for (n,) in db.query(Hotel.nom).filter(Hotel.actif.is_(True)).all()}
+        noms |= {n for (n,) in db.query(Agence.nom_agence).all()}
+    else:
+        noms = set()
+    noms |= {n for (n,) in db.query(EcritureComptable.tiers).filter(EcritureComptable.dossier == dossier, EcritureComptable.tiers.is_not(None)).distinct().all()}
+    return sorted(n for n in noms if n)
+
+
+@router.post("/manuel/mouvements", status_code=201)
+def creer_mouvement(payload: MouvementTresorerieIn, db: Session = Depends(get_db), user: Utilisateur = Depends(exiger_admin)):
+    try:
+        e = svc.saisie_tresorerie(
+            db, dossier=payload.dossier, sens=payload.sens, date_ecriture=payload.date, montant=payload.montant,
+            contrepartie_id=payload.contrepartie_id, libelle=payload.libelle, devise=payload.devise, taux=payload.taux,
+            reference=payload.reference, tiers=payload.tiers, observation=payload.observation, utilisateur_id=user.id,
+        )
+        db.commit()
+    except svc.ComptaError as err:
+        db.rollback()
+        raise _erreur(err)
+    return _sorties(db, [_charger(db, e.id)])[0]
+
+
+@router.put("/manuel/solde-initial")
+def solde_initial(payload: SoldeInitialIn, db: Session = Depends(get_db), user: Utilisateur = Depends(exiger_admin)):
+    try:
+        svc.definir_solde_initial(
+            db, dossier=payload.dossier, montant=payload.montant, date_ecriture=payload.date,
+            devise=payload.devise, taux=payload.taux, utilisateur_id=user.id,
+        )
+        db.commit()
+    except svc.ComptaError as err:
+        db.rollback()
+        raise _erreur(err)
+    return svc.resume_tresorerie(db, payload.dossier)
+
+
+@router.post("/ecritures/{ecriture_id}/regularisation", status_code=201)
+def regulariser(ecriture_id: int, payload: RegularisationIn, db: Session = Depends(get_db), user: Utilisateur = Depends(exiger_admin)):
+    try:
+        e = svc.regulariser(db, ecriture_id, date_ecriture=payload.date, motif=payload.motif, utilisateur_id=user.id)
+        db.commit()
+    except svc.ComptaError as err:
+        db.rollback()
+        raise _erreur(err)
+    return _sorties(db, [_charger(db, e.id)])[0]
+
+
+# ------------------------------------------------------------ TVA, rapports, clôture
+@router.get("/tva")
+def tva(date_du: date | None = None, date_au: date | None = None, db: Session = Depends(get_db)):
+    t = date.today()
+    du, au = (date_du, date_au) if date_du and date_au else (date(t.year, 1, 1), date(t.year, 12, 31))
+    if du > au:
+        raise HTTPException(400, "La date de début doit précéder la date de fin.")
+    return svc.tva_periode(db, du, au)
+
+
+@router.get("/balance")
+def balance(date_du: date | None = None, date_au: date | None = None, db: Session = Depends(get_db)):
+    return svc.balance_generale(db, date_du, date_au)
+
+
+@router.get("/cloture")
+def etat_cloture(db: Session = Depends(get_db)):
+    limite = svc.date_cloture(db)
+    ouvertes = db.query(func.count(EcritureComptable.id)).filter(EcritureComptable.cloturee.is_(False)).scalar() or 0
+    derniere = db.query(func.max(EcritureComptable.date)).filter(EcritureComptable.cloturee.is_(False)).scalar()
+    return {"cloture_jusqu_au": limite.isoformat() if limite else None, "ecritures_ouvertes": ouvertes,
+            "derniere_ecriture_ouverte": derniere.isoformat() if derniere else None}
+
+
+@router.post("/cloture")
+def cloturer(payload: ClotureIn, db: Session = Depends(get_db)):
+    try:
+        n = svc.cloturer(db, payload.jusqu_au)
+        db.commit()
+    except svc.ComptaError as err:
+        db.rollback()
+        raise _erreur(err)
+    return {"cloturees": n, **etat_cloture(db)}

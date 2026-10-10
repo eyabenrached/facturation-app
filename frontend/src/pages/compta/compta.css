@@ -30,6 +30,9 @@
 .sidebar nav .nav-sub a { font-size: 0.83rem; padding: 0.45rem 0.6rem 0.45rem 0.7rem; }
 .sidebar nav .nav-sub a:hover { padding-left: 0.85rem; }
 
+.sidebar nav .nav-sub.nav-sub-2 { margin: 0 0 4px 0.7rem; }
+.sidebar nav .nav-sub.nav-sub-2 a { font-size: 0.78rem; padding: 0.34rem 0.5rem 0.34rem 0.6rem; opacity: 0.9; }
+
 /* ---------- Barre de filtres de période ---------- */
 .compta-periodes { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin-bottom: 1.2rem; }
 .compta-chip {
@@ -164,3 +167,73 @@
   .compta-table { min-width: 0; font-size: 9pt; }
   body { background: #fff; }
 }
+
+
+/* ============================================================
+   Organisation en dossiers (comptabilité automatique / manuelle)
+   ============================================================ */
+.fil-ariane { margin: 0 0 0.3rem; font-size: 0.8rem; color: var(--muted); }
+.fil-ariane a { color: var(--gold-dark); text-decoration: none; font-weight: 500; }
+.fil-ariane a:hover { text-decoration: underline; }
+.actions-entete { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+.dossier-grille { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem; margin-top: 1rem; }
+.dossier-carte {
+  position: relative; display: flex; flex-direction: column; gap: 0.35rem; text-decoration: none; color: var(--ink);
+  background: var(--surface); border: 1px solid var(--line); border-top: 4px solid var(--navy);
+  border-radius: var(--radius-md); padding: 1rem 1.1rem 0.9rem; box-shadow: var(--shadow-sm);
+  transition: box-shadow 0.2s var(--ease), transform 0.2s var(--ease), border-color 0.2s var(--ease);
+}
+.dossier-carte:hover { box-shadow: var(--shadow-md); transform: translateY(-3px); border-color: var(--gold); }
+.dossier-carte.auto { border-top-color: var(--info); }
+.dossier-carte.manuel { border-top-color: var(--gold); }
+.dossier-carte.inactif { opacity: 0.72; border-top-style: dashed; }
+.dossier-icone { font-size: 1.9rem; line-height: 1; }
+.dossier-numero { position: absolute; top: 0.7rem; right: 0.9rem; font-family: var(--font-display); font-weight: 700; font-size: 1.5rem; color: var(--line-strong); }
+.dossier-titre { font-family: var(--font-display); font-weight: 700; font-size: 1.02rem; }
+.dossier-desc { font-size: 0.78rem; color: var(--muted); line-height: 1.35; min-height: 2.6em; }
+.dossier-chiffres { display: flex; justify-content: space-between; font-size: 0.84rem; margin-top: 0.3rem; }
+.dossier-pied { font-size: 0.72rem; color: var(--muted-2); margin-top: auto; padding-top: 0.3rem; border-top: 1px solid var(--line); }
+.dossier-soldes { list-style: none; margin: 0.2rem 0; padding: 0; font-size: 0.84rem; }
+.dossier-soldes li { display: flex; justify-content: space-between; padding: 2px 0; }
+
+.schema-flux { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-top: 1.6rem; font-size: 0.8rem; color: var(--muted); }
+.schema-flux span { background: var(--paper); border: 1px solid var(--line); border-radius: 20px; padding: 0.3rem 0.8rem; }
+.schema-flux i { font-style: normal; color: var(--gold-dark); font-weight: 700; }
+.compta-bandeau.lecture-seule { background: var(--info-soft); border-color: var(--info); }
+
+.filtres-pills { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 0.9rem; }
+.pills { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
+.pills-titre { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); min-width: 58px; }
+
+.badges-ligne { margin-top: 4px; display: flex; gap: 4px; flex-wrap: wrap; }
+.badge.dossier { background: var(--gold-soft); color: var(--gold-dark); }
+.compta-table .piece-lien { font-weight: 700; padding: 0; }
+.ligne-devise { font-size: 0.74rem; color: var(--info); }
+
+.detail-grille { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem 1.2rem; margin: 0.6rem 0; }
+.detail-grille div { display: flex; flex-direction: column; font-size: 0.86rem; }
+.detail-grille span { font-size: 0.72rem; color: var(--muted); }
+.detail-pourquoi { background: var(--paper); border-left: 3px solid var(--gold); padding: 0.55rem 0.8rem; font-size: 0.84rem; border-radius: var(--radius-sm); }
+.detail-lignes .num { text-align: right; font-variant-numeric: tabular-nums; }
+.detail-total td { font-weight: 700; border-top: 2px solid var(--gold); }
+.regul-form { margin-top: 0.8rem; padding: 0.8rem; background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius-sm); }
+
+.segment { display: flex; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); overflow: hidden; }
+.segment button { flex: 1; border: none; background: var(--surface); padding: 0.5rem; font: inherit; font-size: 0.86rem; cursor: pointer; }
+.segment button.actif.entree { background: var(--teal); color: #fff; }
+.segment button.actif.sortie { background: var(--coral); color: #fff; }
+
+.devises-grille { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 0.8rem; margin-bottom: 1rem; }
+.devise-carte {
+  display: flex; flex-direction: column; gap: 2px; text-align: left; cursor: pointer; font: inherit;
+  background: var(--surface); border: 2px solid var(--line); border-radius: var(--radius-md); padding: 0.75rem 1rem;
+  transition: border-color 0.15s var(--ease), box-shadow 0.15s var(--ease);
+}
+.devise-carte:hover { border-color: var(--gold-bright); }
+.devise-carte.actif { border-color: var(--gold); box-shadow: var(--shadow-md); background: var(--gold-soft); }
+.devise-nom { font-weight: 600; font-size: 0.9rem; }
+.devise-solde { font-family: var(--font-display); font-size: 1.35rem; font-weight: 700; }
+.devise-sous { font-size: 0.7rem; color: var(--muted); }
+.solde-kpis { margin-top: 0.2rem; }
+.form-field input.montant { text-align: right; font-variant-numeric: tabular-nums; }

@@ -24,6 +24,11 @@ import ComptaDashboard from "./pages/compta/ComptaDashboard";
 import ComptaJournal from "./pages/compta/ComptaJournal";
 import ComptaPlan from "./pages/compta/ComptaPlan";
 import ComptaCreances from "./pages/compta/ComptaCreances";
+import ComptaAutomatique from "./pages/compta/ComptaAutomatique";
+import ComptaManuel from "./pages/compta/ComptaManuel";
+import ComptaTva from "./pages/compta/ComptaTva";
+import ComptaRapports from "./pages/compta/ComptaRapports";
+import ComptaCloture from "./pages/compta/ComptaCloture";
 import "./pages/compta/compta.css";
 
 function Sidebar({ ouverte, onFermer }: { ouverte: boolean; onFermer: () => void }) {
@@ -37,11 +42,22 @@ function Sidebar({ ouverte, onFermer }: { ouverte: boolean; onFermer: () => void
   useEffect(() => {
     if (dansCompta) setComptaOuverte(true);
   }, [dansCompta]);
-  const liensCompta = [
-    { to: "/comptabilite", label: "Tableau de bord", end: true },
-    { to: "/comptabilite/journal", label: "Journal comptable", end: false },
-    { to: "/comptabilite/plan", label: "Plan comptable", end: false },
-    { to: "/comptabilite/creances", label: "Clients / Créances", end: false },
+  const enAuto = pathname.startsWith("/comptabilite/automatique");
+  const enManuel = pathname.startsWith("/comptabilite/manuel");
+  const sousAuto = [
+    { to: "/comptabilite/automatique/factures_clients", label: "Factures clients" },
+    { to: "/comptabilite/automatique/paiements_clients", label: "Paiements clients" },
+    { to: "/comptabilite/automatique/factures_fournisseurs", label: "Factures fournisseurs" },
+    { to: "/comptabilite/automatique/paiements_fournisseurs", label: "Paiements fournisseurs" },
+    { to: "/comptabilite/automatique/depenses", label: "Dépenses" },
+    { to: "/comptabilite/automatique/reservations", label: "Réservations" },
+  ];
+  const sousManuel = [
+    { to: "/comptabilite/manuel/client", label: "Clients" },
+    { to: "/comptabilite/manuel/fournisseur", label: "Fournisseurs" },
+    { to: "/comptabilite/manuel/banque1", label: "Banque 1 - TND" },
+    { to: "/comptabilite/manuel/banque2", label: "Banque 2 - Devises" },
+    { to: "/comptabilite/manuel/caisse", label: "Caisse" },
   ];
 
   const liensReferentiels = [
@@ -99,11 +115,32 @@ function Sidebar({ ouverte, onFermer }: { ouverte: boolean; onFermer: () => void
             </button>
             {comptaOuverte && (
               <div className="nav-sub">
-                {liensCompta.map((l) => (
-                  <NavLink key={l.to} to={l.to} end={l.end} className={({ isActive }) => (isActive ? "active" : "")}>
-                    {l.label}
-                  </NavLink>
-                ))}
+                <NavLink to="/comptabilite" end className={({ isActive }) => (isActive ? "active" : "")}>Tableau de bord</NavLink>
+
+                <NavLink to="/comptabilite/automatique" end className={({ isActive }) => (isActive ? "active" : "")}>🤖 Comptabilité automatique</NavLink>
+                {enAuto && (
+                  <div className="nav-sub nav-sub-2">
+                    {sousAuto.map((l) => (
+                      <NavLink key={l.to} to={l.to} className={({ isActive }) => (isActive ? "active" : "")}>{l.label}</NavLink>
+                    ))}
+                  </div>
+                )}
+
+                <NavLink to="/comptabilite/manuel" end className={({ isActive }) => (isActive ? "active" : "")}>✍️ Comptabilité manuelle</NavLink>
+                {enManuel && (
+                  <div className="nav-sub nav-sub-2">
+                    {sousManuel.map((l) => (
+                      <NavLink key={l.to} to={l.to} className={({ isActive }) => (isActive ? "active" : "")}>{l.label}</NavLink>
+                    ))}
+                  </div>
+                )}
+
+                <NavLink to="/comptabilite/journal" className={({ isActive }) => (isActive ? "active" : "")}>📒 Journal comptable</NavLink>
+                <NavLink to="/comptabilite/plan" className={({ isActive }) => (isActive ? "active" : "")}>📚 Plan comptable</NavLink>
+                <NavLink to="/comptabilite/tva" className={({ isActive }) => (isActive ? "active" : "")}>🧾 TVA</NavLink>
+                <NavLink to="/comptabilite/rapports" className={({ isActive }) => (isActive ? "active" : "")}>📊 Rapports</NavLink>
+                <NavLink to="/comptabilite/cloture" className={({ isActive }) => (isActive ? "active" : "")}>🔐 Clôture</NavLink>
+                <NavLink to="/comptabilite/creances" className={({ isActive }) => (isActive ? "active" : "")}>👥 Clients / Créances</NavLink>
               </div>
             )}
           </>
@@ -189,6 +226,13 @@ function RoutesProtegees() {
           {estAdmin && <Route path="/comptabilite/journal" element={<ComptaJournal />} />}
           {estAdmin && <Route path="/comptabilite/plan" element={<ComptaPlan />} />}
           {estAdmin && <Route path="/comptabilite/creances" element={<ComptaCreances />} />}
+          {estAdmin && <Route path="/comptabilite/automatique" element={<ComptaAutomatique />} />}
+          {estAdmin && <Route path="/comptabilite/automatique/:dossier" element={<ComptaAutomatique />} />}
+          {estAdmin && <Route path="/comptabilite/manuel" element={<ComptaManuel />} />}
+          {estAdmin && <Route path="/comptabilite/manuel/:dossier" element={<ComptaManuel />} />}
+          {estAdmin && <Route path="/comptabilite/tva" element={<ComptaTva />} />}
+          {estAdmin && <Route path="/comptabilite/rapports" element={<ComptaRapports />} />}
+          {estAdmin && <Route path="/comptabilite/cloture" element={<ComptaCloture />} />}
           <Route path="/mouvements-location" element={<MouvementsLocation />} />
           <Route path="/hotels" element={<Hotels />} />
           <Route path="/dossiers-hotels" element={<DossiersHotels />} />

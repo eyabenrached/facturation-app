@@ -318,6 +318,25 @@ def _prix_mouvement(m):
     return float(prix)
 
 
+def _mention_remplacement(m) -> str:
+    """Mention de transparence quand le véhicule fourni n'est pas du type demandé par le client."""
+    demande = getattr(m, "type_vehicule_demande", None)
+    vehicule = getattr(m, "vehicule", None)
+    if demande is None or vehicule is None:
+        return ""
+    v_demande = getattr(demande, "value", demande)
+    v_fourni = getattr(vehicule.type_vehicule, "value", vehicule.type_vehicule)
+    if v_demande == v_fourni:
+        return ""
+    l_demande = LABELS_TYPE_VEHICULE.get(v_demande, v_demande)
+    l_fourni = LABELS_TYPE_VEHICULE.get(v_fourni, v_fourni)
+    suite = {
+        "demande": f"prix {l_demande} maintenu",
+        "fourni": f"tarif {l_fourni} appliqué",
+    }.get(getattr(m, "mode_prix_remplacement", None) or "demande", "")
+    return f"{l_demande} remplacé par {l_fourni}" + (f" — {suite}" if suite else "")
+
+
 def _detail_rows(facture, styles):
     mouvements = sorted(facture.mouvements, key=lambda m: (m.date, m.heure))
     rows = []
@@ -329,6 +348,9 @@ def _detail_rows(facture, styles):
         designation = f"Transport / location<br/><b>{circuit}</b>"
         if getattr(m, "offert", False):
             designation += "<br/><i>Véhicule offert (geste commercial)</i>"
+        mention = _mention_remplacement(m)
+        if mention:
+            designation += f"<br/><i>{mention}</i>"
         rows.append([
             Paragraph(_fmt_date(m.date), styles["table_cell"]),
             Paragraph(m.heure.strftime("%H:%M"), styles["table_cell"]),

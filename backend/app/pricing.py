@@ -97,6 +97,64 @@ def calculer_prix(
     return round(base * multiplicateur, 3)
 
 
+MODES_PRIX_REMPLACEMENT = ("demande", "fourni", "manuel")
+
+
+class PrixMouvement:
+    """Résultat de la règle de prix d'un mouvement (voir `determiner_prix_mouvement`)."""
+
+    def __init__(self, prix: float, type_vehicule: "models.TypeVehicule", type_demande, mode, remplacement: bool):
+        self.prix = prix
+        self.type_vehicule = type_vehicule      # type utilisé pour le calcul / l'apprentissage
+        self.type_demande = type_demande        # à mémoriser sur le mouvement (None si pas de remplacement)
+        self.mode = mode                        # à mémoriser sur le mouvement (None si pas de remplacement)
+        self.remplacement = remplacement
+
+
+def determiner_prix_mouvement(
+    db: Session, *, client_id: int, circuit_id: int, heure: time, vehicule_id: int | None, offert: bool,
+    type_demande: "models.TypeVehicule | None" = None, mode: str | None = None, prix_saisi: float | None = None,
+) -> PrixMouvement:
+    """Règle de prix d'un mouvement, y compris le remplacement de véhicule.
+
+    - Pas de remplacement (aucun type demandé, ou type demandé = type fourni) : prix saisi s'il y en a un,
+      sinon tarif du type du véhicule (comportement historique).
+    - Pas encore de véhicule affecté mais un type demandé : le prix suit le type demandé.
+    - Remplacement (véhicule fourni d'un autre type que celui demandé) : trois règles
+        « demande » (défaut) : prix du véhicule demandé, « fourni » : tarif du véhicule fourni,
+        « manuel » : prix saisi (obligatoire).
+    Un mouvement offert vaut toujours 0.
+    """
+    fourni = type_vehicule_du_vehicule(db, vehicule_id)
+    remplacement = vehicule_id is not None and type_demande is not None and type_demande != fourni
+
+    if not remplacement:
+        type_calcul = type_demande if (vehicule_id is None and type_demande is not None) else fourni
+        if offert:
+            prix = 0.0
+        elif prix_saisi is not None:
+            prix = prix_saisi
+        else:
+            prix = calculer_prix(db, client_id, circuit_id, heure, type_calcul)
+        # Sans véhicule, on conserve le type demandé comme information ; sinon rien à mémoriser.
+        return PrixMouvement(prix, type_calcul, type_demande if vehicule_id is None else None, None, False)
+
+    mode = mode or "demande"
+    if mode not in MODES_PRIX_REMPLACEMENT:
+        raise ValueError("Règle de prix du remplacement inconnue.")
+    if offert:
+        prix = 0.0
+    elif mode == "manuel":
+        if prix_saisi is None:
+            raise ValueError("Remplacement en prix manuel : saisissez le prix à facturer.")
+        prix = prix_saisi
+    elif mode == "demande":
+        prix = calculer_prix(db, client_id, circuit_id, heure, type_demande)
+    else:
+        prix = calculer_prix(db, client_id, circuit_id, heure, fourni)
+    return PrixMouvement(prix, fourni, type_demande, mode, True)
+
+
 def apprendre_tarif_si_absent(
     db: Session,
     client_id: int,

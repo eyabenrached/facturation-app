@@ -16,11 +16,13 @@ from calendar import monthrange
 from datetime import date
 from decimal import Decimal
 
-from sqlalchemy import extract, func, select
+from sqlalchemy import case, extract, func, select
 from sqlalchemy.orm import Session
 
 from . import models
 from .compta_plan import (
+    DEVISES, DOSSIERS_AUTO, DOSSIERS_MANUELS, LABELS_DOSSIER, ORIGINE_AUTO, ORIGINE_MANUELLE,
+    COMPTE_BANQUE_DEVISES, COMPTE_REPORT_A_NOUVEAU, dossier_auto_de, dossier_comptable_auto,
     MODES_PAIEMENT, TRESORERIE_PAR_MODE,
     COMPTE_BANQUE, COMPTE_CAISSE, COMPTE_CLIENTS, COMPTE_FOURNISSEURS, COMPTE_PAR_CATEGORIE_DEPENSE,
     COMPTE_PRODUITS, COMPTE_TIMBRE, COMPTE_TRESORERIE_DEPENSES, COMPTE_TVA_COLLECTEE,
@@ -67,6 +69,13 @@ def initialiser_plan_comptable() -> None:
         except Exception:  # noqa: BLE001
             db.rollback()
             logger.exception("Reprise des règlements historiques impossible (sera retentée par le rattrapage)")
+        # Traçabilité (origine / dossier) des écritures existantes : idempotent.
+        try:
+            renseigner_tracabilite(db)
+            db.commit()
+        except Exception:  # noqa: BLE001
+            db.rollback()
+            logger.exception("Mise à jour de la traçabilité impossible")
         # Écritures d'émission des factures (411 / 706 / TVA / timbre) : idempotent.
         try:
             rattraper_emissions(db)
@@ -112,7 +121,19 @@ def _normaliser_lignes(db: Session, lignes: list[dict]) -> list[dict]:
         total_credit += credit
         aux = (l.get("compte_auxiliaire") or "").strip() or None
         lib = (l.get("libelle") or "").strip() or None
-        resultat.append({"compte_id": compte.id, "compte_auxiliaire": aux, "libelle": lib, "debit": debit, "credit": credit})
+        ligne = {"compte_id": compte.id, "compte_auxiliaire": aux, "libelle": lib, "debit": debit, "credit": credit}
+        devise = (l.get("devise") or "TND").upper()
+        if devise != "TND":
+            md = l.get("montant_devise")
+            taux = l.get("taux_change")
+            if devise not in DEVISES:
+                raise ComptaError(f"Ligne {i} : devise {devise} non gérée (EUR, USD ou GBP).")
+            if md is None or dec(md) <= 0:
+                raise ComptaError(f"Ligne {i} : le montant en {devise} est obligatoire.")
+            if taux is None or Decimal(str(taux)) <= 0:
+                raise ComptaError(f"Ligne {i} : le taux de change est obligatoire pour une opération en {devise}.")
+            ligne.update(devise=devise, montant_devise=dec(md), taux_change=Decimal(str(taux)).quantize(Decimal("0.000001")))
+        resultat.append(ligne)
     if total_debit != total_credit:
         raise ComptaError(
             f"Écriture déséquilibrée : total débit {fmt(total_debit)} ≠ total crédit {fmt(total_credit)} "
@@ -138,7 +159,8 @@ def creer_ecriture(
     db: Session, *, date_ecriture: date, libelle: str, lignes: list[dict], journal: str = "OD",
     type_operation: str = "manuelle", reference: str | None = None, numero_piece: str | None = None,
     source_type: str | None = None, source_id: int | None = None, source_evenement: str | None = None,
-    utilisateur_id: int | None = None,
+    utilisateur_id: int | None = None, origine: str | None = None, dossier: str | None = None,
+    tiers: str | None = None, observation: str | None = None, regularise_id: int | None = None,
 ) -> EcritureComptable:
     libelle = (libelle or "").strip()
     if not libelle:
@@ -146,7 +168,14 @@ def creer_ecriture(
     if journal not in JOURNAUX:
         raise ComptaError("Journal inconnu.")
     lignes_ok = _normaliser_lignes(db, lignes)
+    # Traçabilité : toute écriture porte une source de génération (automatique) ou non (manuelle).
+    origine = origine or (ORIGINE_AUTO if source_type else ORIGINE_MANUELLE)
+    if origine == ORIGINE_AUTO and not dossier:
+        dossier = dossier_comptable_auto(type_operation, journal)
     e = EcritureComptable(
+        origine=origine, dossier=dossier,
+        tiers=(tiers or "").strip()[:150] or None, observation=(observation or "").strip()[:500] or None,
+        regularise_id=regularise_id,
         date=date_ecriture,
         numero_piece=(numero_piece or "").strip() or prochain_numero_piece(db, journal, date_ecriture.year),
         journal=journal,
@@ -660,3 +689,401 @@ def tableau_de_bord(db: Session, du: date, au: date) -> dict:
         "repartition_charges": repartition,
         "diagnostic": diagnostic(db),
     }
+
+
+# =====================================================================
+# ORGANISATION EN DOSSIERS : comptabilité manuelle, traçabilité, clôture
+# =====================================================================
+def renseigner_tracabilite(db: Session) -> int:
+    """Au démarrage : range les écritures créées avant l'organisation en dossiers
+    (origine « automatique » + dossier comptable). Idempotent."""
+    n = 0
+    anciennes = db.query(EcritureComptable).filter(
+        EcritureComptable.source_type.is_not(None),
+        (EcritureComptable.origine != ORIGINE_AUTO) | (EcritureComptable.dossier.is_(None)),
+    ).all()
+    for e in anciennes:
+        e.origine = ORIGINE_AUTO
+        if not e.dossier:
+            e.dossier = dossier_comptable_auto(e.type_operation, e.journal)
+        n += 1
+    sans_dossier = db.query(EcritureComptable).filter(
+        EcritureComptable.source_type.is_(None), EcritureComptable.dossier.is_(None)
+    ).all()
+    for e in sans_dossier:  # écritures manuelles d'avant : dossier déduit des comptes mouvementés
+        numeros = {l.compte.numero for l in e.lignes}
+        if COMPTE_BANQUE_DEVISES in numeros:
+            e.dossier = "banque2"
+        elif COMPTE_BANQUE in numeros:
+            e.dossier = "banque1"
+        elif COMPTE_CAISSE in numeros:
+            e.dossier = "caisse"
+        elif COMPTE_FOURNISSEURS in numeros:
+            e.dossier = "fournisseur"
+        else:
+            e.dossier = "client"
+        n += 1
+    db.flush()
+    return n
+
+
+def date_cloture(db: Session) -> date | None:
+    """Date jusqu'à laquelle la comptabilité est clôturée (plus grande date d'écriture clôturée)."""
+    return db.query(func.max(EcritureComptable.date)).filter(EcritureComptable.cloturee.is_(True)).scalar()
+
+
+def verifier_periode_ouverte(db: Session, d: date) -> None:
+    limite = date_cloture(db)
+    if limite and d <= limite:
+        raise ComptaError(
+            f"La période est clôturée jusqu'au {limite.strftime('%d/%m/%Y')} : "
+            "aucune écriture ne peut être saisie à une date antérieure ou égale."
+        )
+
+
+def cloturer(db: Session, jusqu_au: date) -> int:
+    if jusqu_au > date.today():
+        raise ComptaError("On ne peut pas clôturer une période qui n'est pas encore terminée.")
+    n = 0
+    for e in db.query(EcritureComptable).filter(EcritureComptable.date <= jusqu_au, EcritureComptable.cloturee.is_(False)).all():
+        e.cloturee = True
+        n += 1
+    db.flush()
+    return n
+
+
+def _config_dossier(dossier: str) -> dict:
+    cfg = DOSSIERS_MANUELS.get(dossier)
+    if not cfg:
+        raise ComptaError("Dossier inconnu : choisissez Clients, Fournisseurs, Banque 1, Banque 2 ou Caisse.")
+    return cfg
+
+
+def _doublon_manuel(db: Session, dossier: str, d: date, libelle: str, reference: str | None, total: Decimal, ignorer_id: int | None = None) -> bool:
+    """Doublon = même dossier, même date, même référence (renseignée), même libellé et même montant."""
+    ref = (reference or "").strip()
+    if not ref:
+        return False
+    for e in db.query(EcritureComptable).filter(
+        EcritureComptable.origine == ORIGINE_MANUELLE, EcritureComptable.dossier == dossier,
+        EcritureComptable.date == d, EcritureComptable.reference == ref,
+        EcritureComptable.libelle == libelle.strip()[:255], EcritureComptable.id != ignorer_id,
+    ).all():
+        if sum((l.debit for l in e.lignes), ZERO) == total:
+            return True
+    return False
+
+
+def controler_dossier(e: EcritureComptable, dossier: str, type_operation: str = "manuelle") -> None:
+    """Cohérence d'une écriture avec son dossier (comptes obligatoires, devises)."""
+    cfg = _config_dossier(dossier)
+    numeros = {l.compte.numero for l in e.lignes}
+    if cfg["tresorerie"] and cfg["tresorerie"] not in numeros:
+        raise ComptaError(f"Dossier {cfg['label']} : l'écriture doit mouvementer le compte {cfg['tresorerie']}.")
+    if cfg["tiers_compte"] and cfg["tiers_compte"] not in numeros and type_operation != "regularisation":
+        raise ComptaError(f"Dossier {cfg['label']} : l'écriture doit mouvementer le compte {cfg['tiers_compte']}.")
+    if dossier == "banque2":
+        if any(l.compte.numero == COMPTE_BANQUE_DEVISES and l.devise == "TND" for l in e.lignes):
+            raise ComptaError("Banque 2 - Devises : indiquez la devise, le montant en devise et le taux de change.")
+    elif any(l.devise != "TND" for l in e.lignes):
+        raise ComptaError("Les opérations en devises se saisissent uniquement dans le dossier Banque 2 - Devises.")
+
+
+def creer_ecriture_manuelle(
+    db: Session, *, dossier: str, date_ecriture: date, libelle: str, lignes: list[dict],
+    reference: str | None = None, tiers: str | None = None, observation: str | None = None,
+    journal: str | None = None, numero_piece: str | None = None, utilisateur_id: int | None = None,
+    type_operation: str = "manuelle", regularise_id: int | None = None,
+) -> EcritureComptable:
+    """Saisie du comptable dans un des 5 dossiers de la comptabilité manuelle.
+    Vérifie l'équilibre, la période ouverte, les doublons et la cohérence avec le dossier."""
+    cfg = _config_dossier(dossier)
+    verifier_periode_ouverte(db, date_ecriture)
+    tiers = (tiers or "").strip() or None
+    if cfg["tiers_compte"] and not tiers:
+        raise ComptaError(f"Dossier {cfg['label']} : indiquez le {'client' if dossier == 'client' else 'fournisseur'} concerné.")
+    e = creer_ecriture(
+        db, date_ecriture=date_ecriture, libelle=libelle, lignes=lignes, journal=journal or cfg["journal"],
+        type_operation=type_operation, reference=reference, numero_piece=numero_piece, utilisateur_id=utilisateur_id,
+        origine=ORIGINE_MANUELLE, dossier=dossier, tiers=tiers, observation=observation, regularise_id=regularise_id,
+    )
+    controler_dossier(e, dossier, type_operation)
+    total = sum((l.debit for l in e.lignes), ZERO)
+    if _doublon_manuel(db, dossier, date_ecriture, e.libelle, e.reference, total, ignorer_id=e.id):
+        raise ComptaError("Doublon : une écriture identique (dossier, date, référence, libellé, montant) existe déjà.")
+    return e
+
+
+def saisie_tresorerie(
+    db: Session, *, dossier: str, sens: str, date_ecriture: date, montant, contrepartie_id: int, libelle: str,
+    devise: str = "TND", taux=None, reference: str | None = None, tiers: str | None = None,
+    observation: str | None = None, utilisateur_id: int | None = None,
+) -> EcritureComptable:
+    """Saisie simplifiée d'un mouvement de banque ou de caisse (entrée / sortie) :
+    génère les deux lignes équilibrées. Pour Banque 2, le montant est en devise et
+    converti en TND avec le taux pour que l'écriture reste équilibrée."""
+    cfg = _config_dossier(dossier)
+    if not cfg["tresorerie"]:
+        raise ComptaError("La saisie de mouvement concerne uniquement la banque et la caisse.")
+    if sens not in ("entree", "sortie"):
+        raise ComptaError("Choisissez entrée ou sortie.")
+    montant = dec(montant)
+    if montant <= 0:
+        raise ComptaError("Le montant doit être supérieur à 0.")
+    contre = db.get(CompteComptable, contrepartie_id)
+    if not contre or not contre.actif:
+        raise ComptaError("Compte de contrepartie introuvable ou désactivé.")
+    if contre.numero == cfg["tresorerie"]:
+        raise ComptaError("Le compte de contrepartie doit être différent du compte de trésorerie.")
+    devise = (devise or "TND").upper()
+    ligne_treso: dict = {"compte_numero": cfg["tresorerie"], "libelle": libelle}
+    if dossier == "banque2":
+        if devise not in DEVISES:
+            raise ComptaError("Choisissez la devise : EUR, USD ou GBP.")
+        if taux is None or Decimal(str(taux)) <= 0:
+            raise ComptaError("Le taux de change est obligatoire (valeur d'une unité de devise en TND).")
+        montant_tnd = (montant * Decimal(str(taux))).quantize(Decimal("0.001"))
+        if montant_tnd <= 0:
+            raise ComptaError("Le montant converti en TND est nul : vérifiez le montant et le taux.")
+        ligne_treso.update(devise=devise, montant_devise=montant, taux_change=taux)
+    else:
+        if devise != "TND":
+            raise ComptaError("Ce dossier fonctionne uniquement en TND.")
+        montant_tnd = montant
+    ligne_contre: dict = {"compte_id": contre.id, "libelle": libelle, "compte_auxiliaire": (tiers or "").strip() or None}
+    if sens == "entree":
+        ligne_treso["debit"], ligne_contre["credit"] = montant_tnd, montant_tnd
+    else:
+        ligne_treso["credit"], ligne_contre["debit"] = montant_tnd, montant_tnd
+    return creer_ecriture_manuelle(
+        db, dossier=dossier, date_ecriture=date_ecriture, libelle=libelle, lignes=[ligne_treso, ligne_contre],
+        reference=reference, tiers=tiers, observation=observation, utilisateur_id=utilisateur_id,
+    )
+
+
+def definir_solde_initial(
+    db: Session, *, dossier: str, montant, date_ecriture: date, devise: str = "TND", taux=None,
+    utilisateur_id: int | None = None,
+) -> EcritureComptable | None:
+    """Solde d'ouverture d'un compte de trésorerie : une seule écriture par dossier (et par devise),
+    contrepassée sur 110000 Report à nouveau. Remplacée à chaque nouvelle saisie."""
+    cfg = _config_dossier(dossier)
+    if not cfg["tresorerie"]:
+        raise ComptaError("Le solde initial concerne uniquement la banque et la caisse.")
+    verifier_periode_ouverte(db, date_ecriture)
+    devise = (devise or "TND").upper()
+    montant = dec(montant)
+    if dossier == "banque2":
+        if devise not in DEVISES:
+            raise ComptaError("Choisissez la devise : EUR, USD ou GBP.")
+    elif devise != "TND":
+        raise ComptaError("Ce dossier fonctionne uniquement en TND.")
+    for e in db.query(EcritureComptable).filter(
+        EcritureComptable.type_operation == "solde_initial", EcritureComptable.dossier == dossier
+    ).all():
+        if any(l.devise == devise and l.compte.numero == cfg["tresorerie"] for l in e.lignes):
+            if e.cloturee:
+                raise ComptaError("Le solde initial appartient à une période clôturée : il ne peut plus être modifié.")
+            db.delete(e)
+    db.flush()
+    if montant == 0:
+        return None
+    absolu = abs(montant)
+    ligne_treso: dict = {"compte_numero": cfg["tresorerie"], "libelle": "Solde initial"}
+    if dossier == "banque2":
+        if taux is None or Decimal(str(taux)) <= 0:
+            raise ComptaError("Le taux de change est obligatoire pour enregistrer un solde initial en devise.")
+        tnd = (absolu * Decimal(str(taux))).quantize(Decimal("0.001"))
+        ligne_treso.update(devise=devise, montant_devise=absolu, taux_change=taux)
+    else:
+        tnd = absolu
+    contre = {"compte_numero": COMPTE_REPORT_A_NOUVEAU, "libelle": "Solde initial"}
+    if montant > 0:
+        ligne_treso["debit"], contre["credit"] = tnd, tnd
+    else:
+        ligne_treso["credit"], contre["debit"] = tnd, tnd
+    suffixe = f" {devise}" if dossier == "banque2" else ""
+    return creer_ecriture(
+        db, date_ecriture=date_ecriture, libelle=f"Solde initial — {cfg['label']}{suffixe}", lignes=[ligne_treso, contre],
+        journal=cfg["journal"], type_operation="solde_initial", reference="SOLDE-INITIAL",
+        origine=ORIGINE_MANUELLE, dossier=dossier, utilisateur_id=utilisateur_id,
+    )
+
+
+def regulariser(db: Session, ecriture_id: int, *, date_ecriture: date | None = None, motif: str | None = None,
+                utilisateur_id: int | None = None) -> EcritureComptable:
+    """Correction d'une écriture (surtout automatique) : écriture de régularisation inverse,
+    manuelle et rattachée à l'originale. L'écriture d'origine n'est jamais modifiée."""
+    e = db.get(EcritureComptable, ecriture_id)
+    if not e:
+        raise ComptaError("Écriture introuvable.")
+    if e.type_operation == "regularisation":
+        raise ComptaError("Une écriture de régularisation ne peut pas être régularisée : saisissez une nouvelle écriture.")
+    deja = db.query(EcritureComptable).filter(EcritureComptable.regularise_id == e.id).first()
+    if deja:
+        raise ComptaError(f"Cette écriture est déjà régularisée par {deja.numero_piece}.")
+    d = date_ecriture or date.today()
+    verifier_periode_ouverte(db, d)
+    inverse = [
+        {"compte_id": l.compte_id, "compte_auxiliaire": l.compte_auxiliaire, "libelle": f"Régularisation {l.libelle or ''}".strip(),
+         "debit": l.credit, "credit": l.debit, "devise": l.devise, "montant_devise": l.montant_devise, "taux_change": l.taux_change}
+        for l in e.lignes
+    ]
+    detail = (motif or "").strip() or e.libelle
+    return creer_ecriture(
+        db, date_ecriture=d, libelle=f"Régularisation de {e.numero_piece} — {detail}", lignes=inverse,
+        journal="OD", type_operation="regularisation", reference=e.reference or e.numero_piece,
+        origine=ORIGINE_MANUELLE, dossier=e.dossier or "client", tiers=e.tiers, regularise_id=e.id,
+        observation=f"Régularisation de l'écriture {e.numero_piece}", utilisateur_id=utilisateur_id,
+    )
+
+
+# ------------------------------------------------------------- soldes et résumés
+def _flux_tresorerie(db: Session, numero_compte: str):
+    init = case((EcritureComptable.type_operation == "solde_initial", 1), else_=0)
+    md = func.coalesce(LigneEcriture.montant_devise, 0)
+    return (
+        db.query(
+            LigneEcriture.devise, init, EcritureComptable.origine,
+            func.coalesce(func.sum(LigneEcriture.debit), 0), func.coalesce(func.sum(LigneEcriture.credit), 0),
+            func.coalesce(func.sum(case((LigneEcriture.debit > 0, md), else_=0)), 0),
+            func.coalesce(func.sum(case((LigneEcriture.credit > 0, md), else_=0)), 0),
+        )
+        .select_from(LigneEcriture)
+        .join(EcritureComptable, EcritureComptable.id == LigneEcriture.ecriture_id)
+        .join(CompteComptable, CompteComptable.id == LigneEcriture.compte_id)
+        .filter(CompteComptable.numero == numero_compte)
+        .group_by(LigneEcriture.devise, init, EcritureComptable.origine)
+        .all()
+    )
+
+
+def resume_tresorerie(db: Session, dossier: str) -> dict:
+    """Solde initial, entrées, sorties et solde actuel d'un dossier de trésorerie.
+    Une ligne par devise : les devises ne sont JAMAIS additionnées entre elles."""
+    cfg = _config_dossier(dossier)
+    if not cfg["tresorerie"]:
+        raise ComptaError("Ce dossier n'est pas un compte de trésorerie.")
+    devises: dict[str, dict] = {}
+
+    def entree(dv: str) -> dict:
+        return devises.setdefault(dv, {
+            "devise": dv, "solde_initial": ZERO, "entrees": ZERO, "sorties": ZERO,
+            "dont_auto_entrees": ZERO, "dont_auto_sorties": ZERO, "valeur_tnd": ZERO,
+        })
+
+    if dossier == "banque2":
+        for dv in DEVISES:
+            entree(dv)
+    else:
+        entree("TND")
+    for dv, init, origine, debit, credit, md_debit, md_credit in _flux_tresorerie(db, cfg["tresorerie"]):
+        r = entree(dv or "TND")
+        d_in, d_out = (dec(md_debit), dec(md_credit)) if dossier == "banque2" else (dec(debit), dec(credit))
+        r["valeur_tnd"] += dec(debit) - dec(credit)
+        if init:
+            r["solde_initial"] += d_in - d_out
+            continue
+        r["entrees"] += d_in
+        r["sorties"] += d_out
+        if origine == ORIGINE_AUTO:
+            r["dont_auto_entrees"] += d_in
+            r["dont_auto_sorties"] += d_out
+    lignes = []
+    for dv, r in devises.items():
+        r["solde"] = r["solde_initial"] + r["entrees"] - r["sorties"]
+        lignes.append({k: (float(v) if isinstance(v, Decimal) else v) for k, v in r.items()})
+    return {"dossier": dossier, "compte": cfg["tresorerie"], "devises": lignes}
+
+
+def resume_dossiers_manuels(db: Session) -> list[dict]:
+    comptes = dict(
+        db.query(EcritureComptable.dossier, func.count(EcritureComptable.id))
+        .filter(EcritureComptable.origine == ORIGINE_MANUELLE, EcritureComptable.type_operation != "solde_initial")
+        .group_by(EcritureComptable.dossier).all()
+    )
+    resultat = []
+    for cle, cfg in DOSSIERS_MANUELS.items():
+        r = {"cle": cle, "numero": cfg["numero"], "label": cfg["label"], "titre": cfg["titre"], "icone": cfg["icone"],
+             "description": cfg["description"], "nb_ecritures": int(comptes.get(cle, 0)), "tresorerie": None}
+        if cfg["tresorerie"]:
+            r["tresorerie"] = resume_tresorerie(db, cle)["devises"]
+        resultat.append(r)
+    return resultat
+
+
+def resume_dossiers_auto(db: Session) -> list[dict]:
+    rows = (
+        db.query(EcritureComptable.type_operation, func.count(func.distinct(EcritureComptable.id)),
+                 func.coalesce(func.sum(LigneEcriture.debit), 0), func.max(EcritureComptable.date))
+        .join(LigneEcriture, LigneEcriture.ecriture_id == EcritureComptable.id)
+        .filter(EcritureComptable.origine == ORIGINE_AUTO)
+        .group_by(EcritureComptable.type_operation).all()
+    )
+    agg: dict[str, dict] = {cle: {"nb": 0, "total": ZERO, "derniere": None} for cle in DOSSIERS_AUTO}
+    for type_op, nb, total, derniere in rows:
+        a = agg[dossier_auto_de(type_op)]
+        a["nb"] += int(nb)
+        a["total"] += dec(total)
+        if derniere and (a["derniere"] is None or derniere > a["derniere"]):
+            a["derniere"] = derniere
+    return [
+        {"cle": cle, "label": d["label"], "icone": d["icone"], "description": d["description"], "source": d["source"],
+         "nb_ecritures": agg[cle]["nb"], "total": float(agg[cle]["total"]),
+         "derniere_date": agg[cle]["derniere"].isoformat() if agg[cle]["derniere"] else None}
+        for cle, d in DOSSIERS_AUTO.items()
+    ]
+
+
+# ------------------------------------------------------------- TVA et rapports
+def tva_periode(db: Session, du: date, au: date) -> dict:
+    y, m = extract("year", EcritureComptable.date), extract("month", EcritureComptable.date)
+    q = (
+        db.query(y, m, CompteComptable.numero, func.coalesce(func.sum(LigneEcriture.debit), 0), func.coalesce(func.sum(LigneEcriture.credit), 0))
+        .select_from(LigneEcriture)
+        .join(EcritureComptable, EcritureComptable.id == LigneEcriture.ecriture_id)
+        .join(CompteComptable, CompteComptable.id == LigneEcriture.compte_id)
+        .filter(CompteComptable.numero.in_([COMPTE_TVA_COLLECTEE, COMPTE_TVA_DEDUCTIBLE, COMPTE_TIMBRE]),
+                EcritureComptable.date >= du, EcritureComptable.date <= au)
+        .group_by(y, m, CompteComptable.numero).all()
+    )
+    mois: dict[tuple[int, int], dict] = {}
+    for a, mo, numero, d, c in q:
+        r = mois.setdefault((int(a), int(mo)), {"mois": f"{int(a)}-{int(mo):02d}", "collectee": ZERO, "deductible": ZERO, "timbre": ZERO})
+        if numero == COMPTE_TVA_COLLECTEE:
+            r["collectee"] += dec(c) - dec(d)
+        elif numero == COMPTE_TVA_DEDUCTIBLE:
+            r["deductible"] += dec(d) - dec(c)
+        else:
+            r["timbre"] += dec(c) - dec(d)
+    lignes = []
+    for cle in sorted(mois):
+        r = mois[cle]
+        lignes.append({"mois": r["mois"], "collectee": float(r["collectee"]), "deductible": float(r["deductible"]),
+                       "timbre": float(r["timbre"]), "a_payer": float(r["collectee"] - r["deductible"])})
+    tc, td, tt = (sum(l[k] for l in lignes) for k in ("collectee", "deductible", "timbre"))
+    return {"date_du": du.isoformat(), "date_au": au.isoformat(), "lignes": lignes,
+            "total_collectee": round(tc, 3), "total_deductible": round(td, 3), "total_timbre": round(tt, 3),
+            "total_a_payer": round(tc - td, 3)}
+
+
+def balance_generale(db: Session, du: date | None, au: date | None) -> dict:
+    q = (
+        db.query(CompteComptable.numero, CompteComptable.libelle,
+                 func.coalesce(func.sum(LigneEcriture.debit), 0), func.coalesce(func.sum(LigneEcriture.credit), 0))
+        .select_from(LigneEcriture)
+        .join(EcritureComptable, EcritureComptable.id == LigneEcriture.ecriture_id)
+        .join(CompteComptable, CompteComptable.id == LigneEcriture.compte_id)
+    )
+    if du:
+        q = q.filter(EcritureComptable.date >= du)
+    if au:
+        q = q.filter(EcritureComptable.date <= au)
+    lignes, td, tc = [], ZERO, ZERO
+    for numero, libelle, d, c in q.group_by(CompteComptable.numero, CompteComptable.libelle).order_by(CompteComptable.numero).all():
+        d, c = dec(d), dec(c)
+        td += d
+        tc += c
+        lignes.append({"numero": numero, "libelle": libelle, "debit": float(d), "credit": float(c),
+                       "solde_debiteur": float(d - c) if d > c else 0.0, "solde_crediteur": float(c - d) if c > d else 0.0})
+    return {"lignes": lignes, "total_debit": float(td), "total_credit": float(tc), "equilibre": td == tc}

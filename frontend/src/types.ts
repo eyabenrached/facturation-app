@@ -31,6 +31,8 @@ export interface Agence {
 
 export type TypeVehicule = "mini_bus" | "quatre_quatre" | "microbus" | "bus";
 
+export type ModePrixRemplacement = "demande" | "fourni" | "manuel";
+
 export const LABELS_TYPE_VEHICULE: Record<TypeVehicule, string> = {
   mini_bus: "Mini bus",
   quatre_quatre: "4x4",
@@ -90,6 +92,9 @@ export interface Mouvement {
   nb_personnes: number | null;
   prix_applique: number;
   offert: boolean;
+  // Remplacement de véhicule : type demandé par le client et règle de prix retenue.
+  type_vehicule_demande: TypeVehicule | null;
+  mode_prix_remplacement: ModePrixRemplacement | null;
   facture_id: number | null;
   client?: Client;
   circuit?: Circuit;

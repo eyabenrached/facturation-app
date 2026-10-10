@@ -1,4 +1,5 @@
 from datetime import date, time, datetime
+from typing import Literal
 from pydantic import BaseModel, EmailStr, ConfigDict
 from .models import (
     StatutFacture, RoleUtilisateur, TypeVehicule, CategorieDepense,
@@ -201,6 +202,9 @@ class MouvementBase(BaseModel):
     transporteur_id: int | None = None
     nb_personnes: int | None = None
     offert: bool = False
+    # Remplacement : type demandé par le client (si différent du véhicule fourni) et règle de prix.
+    type_vehicule_demande: TypeVehicule | None = None
+    mode_prix_remplacement: Literal["demande", "fourni", "manuel"] | None = None
 
 
 class MouvementCreate(MouvementBase):

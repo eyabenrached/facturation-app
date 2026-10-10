@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { api } from "../api";
-import { Mouvement, Client, Circuit, Chauffeur, Vehicule, Agence, Parametres, TarifClient, TypeVehicule, LABELS_TYPE_VEHICULE } from "../types";
+import { Mouvement, Client, Circuit, Chauffeur, Vehicule, Agence, Parametres, TarifClient, TypeVehicule, ModePrixRemplacement, LABELS_TYPE_VEHICULE } from "../types";
 import { DataTable } from "../components/DataTable";
 import { Modal } from "../components/Modal";
 import { RecapTransporteurs } from "../components/RecapTransporteurs";
@@ -30,7 +30,23 @@ const VIDE_MOUVEMENT = {
   transporteur_id: null as number | null,
   nb_personnes: null as number | null,
   offert: false,
+  // Remplacement de véhicule (ex : microbus demandé, mini bus fourni).
+  type_vehicule_demande: null as TypeVehicule | null,
+  mode_prix_remplacement: "demande" as ModePrixRemplacement,
 };
+
+/** Vrai si le véhicule fourni n'est pas du type demandé par le client. */
+function estRemplacement(m: Mouvement): boolean {
+  return !!(m.type_vehicule_demande && m.vehicule && m.type_vehicule_demande !== m.vehicule.type_vehicule);
+}
+
+function detailRemplacement(m: Mouvement): string {
+  if (!m.type_vehicule_demande || !m.vehicule) return "";
+  const d = LABELS_TYPE_VEHICULE[m.type_vehicule_demande];
+  const f = LABELS_TYPE_VEHICULE[m.vehicule.type_vehicule];
+  const regle = m.mode_prix_remplacement === "fourni" ? `tarif ${f}` : m.mode_prix_remplacement === "manuel" ? "prix négocié" : `prix ${d} maintenu`;
+  return `${d} remplacé par ${f} — ${regle}`;
+}
 
 // Le backend ne renvoie par défaut que les chauffeurs actifs (contrat en
 // cours). Si le mouvement affiché/édité était lié à un chauffeur depuis
@@ -66,6 +82,7 @@ export default function Mouvements() {
   const [filtreTransporteur, setFiltreTransporteur] = useState("");
   const [filtreChauffeur, setFiltreChauffeur] = useState("");
   const [filtreTypeVehicule, setFiltreTypeVehicule] = useState("");
+  const [filtreRemplacement, setFiltreRemplacement] = useState(false);
   const [filtrePrixMin, setFiltrePrixMin] = useState("");
   const [filtrePrixMax, setFiltrePrixMax] = useState("");
 
@@ -160,6 +177,7 @@ export default function Mouvements() {
     if (filtreTransporteur) params.set("transporteur_id", filtreTransporteur);
     if (filtreChauffeur) params.set("chauffeur_id", filtreChauffeur);
     if (filtreTypeVehicule) params.set("type_vehicule", filtreTypeVehicule);
+    if (filtreRemplacement) params.set("remplacement", "true");
     if (filtrePrixMin) params.set("prix_min", filtrePrixMin);
     if (filtrePrixMax) params.set("prix_max", filtrePrixMax);
     const data = await api.get<Mouvement[]>(`/mouvements/?${params.toString()}`);
@@ -170,7 +188,7 @@ export default function Mouvements() {
   useEffect(() => {
     const t = setTimeout(() => chargerMouvements(), 350);
     return () => clearTimeout(t);
-  }, [dateDu, dateAu, filtreClient, filtreCircuit, filtreStatutMvt, filtreHeure, filtreTransporteur, filtreChauffeur, filtreTypeVehicule, filtrePrixMin, filtrePrixMax]);
+  }, [dateDu, dateAu, filtreClient, filtreCircuit, filtreStatutMvt, filtreHeure, filtreTransporteur, filtreChauffeur, filtreTypeVehicule, filtreRemplacement, filtrePrixMin, filtrePrixMax]);
 
   // ---------- Ajout d'un mouvement ----------
   function ouvrirAjoutMouvement() {
@@ -193,6 +211,8 @@ export default function Mouvements() {
       transporteur_id: m.transporteur_id,
       nb_personnes: m.nb_personnes,
       offert: m.offert ?? false,
+      type_vehicule_demande: m.type_vehicule_demande ?? null,
+      mode_prix_remplacement: m.mode_prix_remplacement ?? "demande",
     });
     setPrixSuggere(m.prix_applique);
     setErreurMvt("");
@@ -213,6 +233,8 @@ export default function Mouvements() {
       transporteur_id: m.transporteur_id,
       nb_personnes: m.nb_personnes,
       offert: m.offert ?? false,
+      type_vehicule_demande: m.type_vehicule_demande ?? null,
+      mode_prix_remplacement: m.mode_prix_remplacement ?? "demande",
     });
     setPrixSuggere(m.prix_applique);
     setErreurMvt("");
@@ -223,13 +245,21 @@ export default function Mouvements() {
     setFormMvt({ ...formMvt, ...champs });
   }
 
+  // Remplacement de véhicule : le véhicule choisi n'est pas du type demandé par le client.
+  const vehiculeFourni = vehicules.find((v) => v.id === formMvt.vehicule_id);
+  const remplacement = !!(formMvt.type_vehicule_demande && vehiculeFourni && formMvt.type_vehicule_demande !== vehiculeFourni.type_vehicule);
+  const prixManuelPossible = estAdmin || !prixAutoActif;
+
   // Récupère automatiquement le prix suggéré par le backend (qui tient compte
   // de l'heure, du client, du circuit et du type de véhicule) dès que ces
   // champs sont renseignés dans le formulaire.
   useEffect(() => {
     if (!modalMvtOuvert) return;
-    if (!prixSuggestionActive) return;
+    // Remplacement avec prix « demande » ou « fourni » : le prix vient toujours du serveur.
+    const remplacementAuto = remplacement && formMvt.mode_prix_remplacement !== "manuel";
+    if (!prixSuggestionActive && !remplacementAuto) return;
     if (formMvt.offert) return; // véhicule offert : prix = 0, pas de suggestion
+    if (remplacement && formMvt.mode_prix_remplacement === "manuel") return; // prix saisi à la main : on ne l'écrase pas
     if (!formMvt.client_id || !formMvt.circuit_id || !formMvt.heure) return;
 
     const params = new URLSearchParams();
@@ -237,6 +267,8 @@ export default function Mouvements() {
     params.set("circuit_id", String(formMvt.circuit_id));
     params.set("heure", formMvt.heure);
     if (formMvt.vehicule_id) params.set("vehicule_id", String(formMvt.vehicule_id));
+    if (formMvt.type_vehicule_demande) params.set("type_demande", formMvt.type_vehicule_demande);
+    if (remplacement) params.set("mode", formMvt.mode_prix_remplacement);
 
     let annule = false;
     api
@@ -251,7 +283,7 @@ export default function Mouvements() {
     return () => {
       annule = true;
     };
-  }, [modalMvtOuvert, prixSuggestionActive, formMvt.offert, formMvt.client_id, formMvt.circuit_id, formMvt.heure, formMvt.vehicule_id]);
+  }, [modalMvtOuvert, prixSuggestionActive, formMvt.offert, formMvt.client_id, formMvt.circuit_id, formMvt.heure, formMvt.vehicule_id, formMvt.type_vehicule_demande, formMvt.mode_prix_remplacement, remplacement]);
 
   // Tarifs spécifiques du client sélectionné dans le formulaire de mouvement,
   // pour filtrer les circuits proposés et afficher l'horaire/prix connus
@@ -540,6 +572,13 @@ export default function Mouvements() {
           </select>
         </div>
         <div className="form-field">
+          <label>Remplacements</label>
+          <label style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontWeight: 400, padding: "0.45rem 0" }}>
+            <input type="checkbox" checked={filtreRemplacement} onChange={(e) => setFiltreRemplacement(e.target.checked)} />
+            Véhicule de remplacement uniquement
+          </label>
+        </div>
+        <div className="form-field">
           <label>Prix min (TND)</label>
           <input type="number" min="0" step="any" value={filtrePrixMin} onChange={(e) => setFiltrePrixMin(e.target.value)} />
         </div>
@@ -585,9 +624,35 @@ export default function Mouvements() {
           { header: "Circuit", render: (m) => (m.circuit ? `${m.circuit.point_depart} → ${m.circuit.point_arrivee}` : "—") },
           { header: "Transporteur", render: (m) => m.transporteur?.nom_agence || "—" },
           { header: "Chauffeur", render: (m) => (m.chauffeur ? `${m.chauffeur.prenom} ${m.chauffeur.nom}` : "—") },
-          { header: "Véhicule", render: (m) => m.vehicule?.matricule || "—" },
+          {
+            header: "Véhicule",
+            render: (m) => (
+              <>
+                {m.vehicule?.matricule || "—"}
+                {estRemplacement(m) && (
+                  <div title={detailRemplacement(m)} style={{ marginTop: 2 }}>
+                    <span style={{ background: "#fef3c7", color: "#92400e", border: "1px solid #f59e0b", borderRadius: 10, padding: "1px 7px", fontSize: "0.7rem", whiteSpace: "nowrap" }}>
+                      Remplace {LABELS_TYPE_VEHICULE[m.type_vehicule_demande as TypeVehicule]}
+                    </span>
+                  </div>
+                )}
+              </>
+            ),
+          },
           { header: "Nb pers.", render: (m) => m.nb_personnes ?? "—" },
-          { header: "Prix", render: (m: Mouvement) => (m.offert ? "Offert (0 TND)" : `${m.prix_applique} TND`) },
+          {
+            header: "Prix",
+            render: (m: Mouvement) => (
+              <>
+                {m.offert ? "Offert (0 TND)" : `${m.prix_applique} TND`}
+                {estRemplacement(m) && !m.offert && (
+                  <div style={{ fontSize: "0.7rem", color: "#6b7280" }}>
+                    {m.mode_prix_remplacement === "fourni" ? "tarif véhicule fourni" : m.mode_prix_remplacement === "manuel" ? "prix négocié" : "prix véhicule demandé"}
+                  </div>
+                )}
+              </>
+            ),
+          },
           { header: "Statut", render: (m) => (m.facture_id ? "Facturé" : "Non facturé") },
           {
             header: "Actions",
@@ -673,8 +738,20 @@ export default function Mouvements() {
                 <option value="">—</option>
                 {vehicules.map((v) => (
                   <option key={v.id} value={v.id}>
-                    {v.matricule} ({v.type_vehicule})
+                    {v.matricule} ({LABELS_TYPE_VEHICULE[v.type_vehicule] ?? v.type_vehicule})
                   </option>
+                ))}
+              </select>
+            </div>
+            <div className="form-field">
+              <label>Type demandé par le client (optionnel)</label>
+              <select
+                value={formMvt.type_vehicule_demande ?? ""}
+                onChange={(e) => majFormMvt({ type_vehicule_demande: e.target.value ? (e.target.value as TypeVehicule) : null })}
+              >
+                <option value="">— Même type que le véhicule —</option>
+                {TYPES_VEHICULE_FILTRE.map((t) => (
+                  <option key={t} value={t}>{LABELS_TYPE_VEHICULE[t]}</option>
                 ))}
               </select>
             </div>
@@ -695,6 +772,30 @@ export default function Mouvements() {
                 <button type="button" className="btn secondary" onClick={() => enregistrerMouvement(true)}>
                   Enregistrer et ajouter un véhicule offert ({placesManquantes} places)
                 </button>
+              </div>
+            </div>
+          )}
+          {remplacement && vehiculeFourni && formMvt.type_vehicule_demande && !formMvt.offert && (
+            <div style={{ background: "#eff6ff", border: "1px solid #93c5fd", borderRadius: 6, padding: "0.6rem 0.75rem", marginBottom: "1rem", fontSize: "0.85rem" }}>
+              🔁 <b>Remplacement :</b> {LABELS_TYPE_VEHICULE[formMvt.type_vehicule_demande]} demandé,{" "}
+              {LABELS_TYPE_VEHICULE[vehiculeFourni.type_vehicule]} fourni. Quel prix facturer ?
+              {([
+                ["demande", `Prix du ${LABELS_TYPE_VEHICULE[formMvt.type_vehicule_demande]} demandé (le client ne paie pas plus)`],
+                ["fourni", `Tarif du ${LABELS_TYPE_VEHICULE[vehiculeFourni.type_vehicule]} fourni`],
+                ...(prixManuelPossible ? [["manuel", "Prix saisi à la main (négocié)"]] : []),
+              ] as [ModePrixRemplacement, string][]).map(([mode, texte]) => (
+                <label key={mode} style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginTop: "0.35rem", fontWeight: 400 }}>
+                  <input
+                    type="radio"
+                    name="mode_prix_remplacement"
+                    checked={formMvt.mode_prix_remplacement === mode}
+                    onChange={() => majFormMvt({ mode_prix_remplacement: mode })}
+                  />
+                  {texte}
+                </label>
+              ))}
+              <div style={{ marginTop: "0.4rem", color: "#6b7280" }}>
+                Le prix d'un remplacement n'est jamais mémorisé comme tarif du client. La facture indiquera le remplacement.
               </div>
             </div>
           )}
@@ -727,6 +828,11 @@ export default function Mouvements() {
             {formMvt.offert ? (
               <div style={{ padding: "0.5rem 0.75rem", border: "1px solid #d1d5db", borderRadius: "6px", background: "#ecfdf5", fontWeight: 600 }}>
                 0 TND (offert)
+              </div>
+            ) : remplacement && formMvt.mode_prix_remplacement !== "manuel" ? (
+              // Remplacement « prix demandé » ou « tarif fourni » : prix calculé par le serveur, non modifiable ici.
+              <div style={{ padding: "0.5rem 0.75rem", border: "1px solid #d1d5db", borderRadius: "6px", background: "#f3f4f6", fontWeight: 600 }}>
+                {prixSuggere !== null ? `${prixSuggere} TND` : "Calcul en cours…"}
               </div>
             ) : !estAdmin && prixAutoEffectif && prixSuggere !== null ? (
               // Gestionnaire + tarif automatique trouvé : affichage figé, aucune interaction possible.

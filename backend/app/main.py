@@ -70,9 +70,33 @@ def migrer_colonnes_manquantes():
             "ALTER TABLE factures ADD COLUMN IF NOT EXISTS "
             "timbre NUMERIC(6,3) NOT NULL DEFAULT 0"
         ))
+        # Comptabilité : traçabilité (origine / dossier) et devises.
+        for ddl in (
+            "ALTER TABLE ecritures_comptables ADD COLUMN IF NOT EXISTS origine VARCHAR(12) NOT NULL DEFAULT 'manuelle'",
+            "ALTER TABLE ecritures_comptables ADD COLUMN IF NOT EXISTS dossier VARCHAR(20)",
+            "ALTER TABLE ecritures_comptables ADD COLUMN IF NOT EXISTS tiers VARCHAR(150)",
+            "ALTER TABLE ecritures_comptables ADD COLUMN IF NOT EXISTS observation VARCHAR(500)",
+            "ALTER TABLE ecritures_comptables ADD COLUMN IF NOT EXISTS regularise_id INTEGER",
+            "ALTER TABLE lignes_ecritures ADD COLUMN IF NOT EXISTS devise VARCHAR(3) NOT NULL DEFAULT 'TND'",
+            "ALTER TABLE lignes_ecritures ADD COLUMN IF NOT EXISTS montant_devise NUMERIC(14,3)",
+            "ALTER TABLE lignes_ecritures ADD COLUMN IF NOT EXISTS taux_change NUMERIC(14,6)",
+            "CREATE INDEX IF NOT EXISTS ix_ecritures_comptables_origine ON ecritures_comptables(origine)",
+            "CREATE INDEX IF NOT EXISTS ix_ecritures_comptables_dossier ON ecritures_comptables(dossier)",
+            "CREATE INDEX IF NOT EXISTS ix_ecritures_comptables_regularise_id ON ecritures_comptables(regularise_id)",
+        ):
+            try:
+                conn.execute(text("SAVEPOINT s_compta"))
+                conn.execute(text(ddl))
+                conn.execute(text("RELEASE SAVEPOINT s_compta"))
+            except Exception as exc:  # noqa: BLE001 (table pas encore créée : create_all s'en charge)
+                conn.execute(text("ROLLBACK TO SAVEPOINT s_compta"))
+                print(f"[WARN] Migration comptabilité ignorée ({exc.__class__.__name__}) : {ddl[:60]}…")
         # Véhicule : nombre de places ; mouvement : véhicule offert gratuitement.
         conn.execute(text("ALTER TABLE vehicules ADD COLUMN IF NOT EXISTS nb_places INTEGER"))
         conn.execute(text("ALTER TABLE mouvements ADD COLUMN IF NOT EXISTS offert BOOLEAN NOT NULL DEFAULT FALSE"))
+        # Remplacement de véhicule (type demandé + règle de prix).
+        conn.execute(text("ALTER TABLE mouvements ADD COLUMN IF NOT EXISTS type_vehicule_demande type_vehicule"))
+        conn.execute(text("ALTER TABLE mouvements ADD COLUMN IF NOT EXISTS mode_prix_remplacement VARCHAR(10)"))
         # Dossiers hôtels : agence et circuit en saisie libre (texte).
         conn.execute(text("ALTER TABLE dossiers_hotels ADD COLUMN IF NOT EXISTS agence_nom VARCHAR(150)"))
         conn.execute(text("ALTER TABLE dossiers_hotels ADD COLUMN IF NOT EXISTS circuit_nom VARCHAR(200)"))

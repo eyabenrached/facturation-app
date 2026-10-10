@@ -60,7 +60,13 @@ export interface LigneEcriture {
   libelle: string | null;
   debit: number;
   credit: number;
+  devise: string;
+  montant_devise: number | null;
+  taux_change: number | null;
 }
+
+export type Origine = "automatique" | "manuelle";
+export type DossierCle = "client" | "fournisseur" | "banque1" | "banque2" | "caisse";
 
 export interface Ecriture {
   id: number;
@@ -71,6 +77,15 @@ export interface Ecriture {
   reference: string | null;
   type_operation: string;
   automatique: boolean;
+  origine: Origine;
+  dossier: DossierCle | null;
+  dossier_label: string;
+  tiers: string | null;
+  observation: string | null;
+  utilisateur: string | null;
+  date_creation: string | null;
+  regularise_id: number | null;
+  regularisee_par: string | null;
   cloturee: boolean;
   modifiable: boolean;
   total_debit: number;
@@ -87,6 +102,86 @@ export interface PageEcritures {
   total_credit: number;
   journaux: Record<string, string>;
   types: Record<string, string>;
+  dossiers: Record<string, string>;
+}
+
+// ------------------------------------------------------- dossiers (auto / manuel)
+export interface DossierAuto {
+  cle: string;
+  label: string;
+  icone: string;
+  description: string;
+  source: boolean;
+  nb_ecritures: number;
+  total: number;
+  derniere_date: string | null;
+}
+
+export interface SoldeDevise {
+  devise: string;
+  solde_initial: number;
+  entrees: number;
+  sorties: number;
+  dont_auto_entrees: number;
+  dont_auto_sorties: number;
+  valeur_tnd: number;
+  solde: number;
+}
+
+export interface ResumeTresorerie {
+  dossier: DossierCle;
+  compte: string;
+  devises: SoldeDevise[];
+}
+
+export interface DossierManuel {
+  cle: DossierCle;
+  numero: string;
+  label: string;
+  titre: string;
+  icone: string;
+  description: string;
+  nb_ecritures: number;
+  tresorerie: SoldeDevise[] | null;
+}
+
+export const DOSSIERS_MANUELS_CLES: DossierCle[] = ["client", "fournisseur", "banque1", "banque2", "caisse"];
+export const ICONES_DEVISE: Record<string, string> = { TND: "🇹🇳", EUR: "💶", USD: "💵", GBP: "💷" };
+
+export interface TvaMois {
+  mois: string;
+  collectee: number;
+  deductible: number;
+  timbre: number;
+  a_payer: number;
+}
+export interface TvaData {
+  date_du: string;
+  date_au: string;
+  lignes: TvaMois[];
+  total_collectee: number;
+  total_deductible: number;
+  total_timbre: number;
+  total_a_payer: number;
+}
+export interface LigneBalance {
+  numero: string;
+  libelle: string;
+  debit: number;
+  credit: number;
+  solde_debiteur: number;
+  solde_crediteur: number;
+}
+export interface BalanceData {
+  lignes: LigneBalance[];
+  total_debit: number;
+  total_credit: number;
+  equilibre: boolean;
+}
+export interface EtatCloture {
+  cloture_jusqu_au: string | null;
+  ecritures_ouvertes: number;
+  derniere_ecriture_ouverte: string | null;
 }
 
 // ---------------------------------------------------------- clients / créances
@@ -243,6 +338,13 @@ export const comptaApi = {
   creances: (params: Record<string, string> = {}) =>
     api.get<CreancesData>(`/comptabilite/creances?${new URLSearchParams(params).toString()}`),
   detailClient: (nom: string) => api.get<DetailClient>(`/comptabilite/creances/detail?nom=${encodeURIComponent(nom)}`),
+  dossiersAuto: () => api.get<{ dossiers: DossierAuto[]; diagnostic: DiagnosticCompta }>("/comptabilite/automatique/dossiers"),
+  dossiersManuels: () => api.get<{ dossiers: DossierManuel[]; devises: Record<string, string> }>("/comptabilite/manuel/dossiers"),
+  tresorerie: (dossier: DossierCle) => api.get<ResumeTresorerie>(`/comptabilite/manuel/tresorerie/${dossier}`),
+  tiers: (dossier: DossierCle) => api.get<string[]>(`/comptabilite/manuel/tiers?dossier=${dossier}`),
+  tva: (du: string, au: string) => api.get<TvaData>(`/comptabilite/tva?date_du=${du}&date_au=${au}`),
+  balance: (du: string, au: string) => api.get<BalanceData>(`/comptabilite/balance?date_du=${du}&date_au=${au}`),
+  cloture: () => api.get<EtatCloture>("/comptabilite/cloture"),
   ecritures: (params: Record<string, string>) =>
     api.get<PageEcritures>(`/comptabilite/ecritures?${new URLSearchParams(params).toString()}`),
 };

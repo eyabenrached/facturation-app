@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session, joinedload
 from .. import models, schemas
 from ..database import get_db
 from ..deps import exiger_utilisateur_connecte
-from ..pricing import apprendre_tarif_si_absent, calculer_prix, type_vehicule_du_vehicule
+from ..pricing import apprendre_tarif_si_absent, calculer_prix, determiner_prix_mouvement, type_vehicule_du_vehicule
 from ..recap import construire_recap_transporteurs
 
 router = APIRouter(prefix="/mouvements", tags=["Mouvements"])
@@ -35,6 +35,7 @@ def liste_mouvements(
     prix_min: float | None = None,
     prix_max: float | None = None,
     statut: str | None = None,  # "facture" | "non_facture"
+    remplacement: bool | None = None,  # True : uniquement les véhicules de remplacement
     db: Session = Depends(get_db),
 ):
     q = db.query(models.Mouvement).options(
@@ -59,10 +60,15 @@ def liste_mouvements(
         q = q.filter(models.Mouvement.transporteur_id == transporteur_id)
     if chauffeur_id:
         q = q.filter(models.Mouvement.chauffeur_id == chauffeur_id)
-    if type_vehicule:
-        q = q.join(models.Vehicule, models.Mouvement.vehicule_id == models.Vehicule.id).filter(
-            models.Vehicule.type_vehicule == type_vehicule
-        )
+    if type_vehicule or remplacement:
+        q = q.join(models.Vehicule, models.Mouvement.vehicule_id == models.Vehicule.id)
+        if type_vehicule:
+            q = q.filter(models.Vehicule.type_vehicule == type_vehicule)
+        if remplacement:
+            q = q.filter(
+                models.Mouvement.type_vehicule_demande.isnot(None),
+                models.Mouvement.type_vehicule_demande != models.Vehicule.type_vehicule,
+            )
     if prix_min is not None:
         q = q.filter(models.Mouvement.prix_applique >= prix_min)
     if prix_max is not None:
@@ -81,12 +87,19 @@ def creer_mouvement(payload: schemas.MouvementCreate, db: Session = Depends(get_
     if not db.query(models.Circuit).get(payload.circuit_id):
         raise HTTPException(400, "Circuit introuvable.")
 
-    type_vehicule = type_vehicule_du_vehicule(db, payload.vehicule_id)
-    prix = 0.0 if payload.offert else payload.prix_applique
-    if prix is None:
-        prix = calculer_prix(db, payload.client_id, payload.circuit_id, payload.heure, type_vehicule)
+    try:
+        calc = determiner_prix_mouvement(
+            db, client_id=payload.client_id, circuit_id=payload.circuit_id, heure=payload.heure,
+            vehicule_id=payload.vehicule_id, offert=payload.offert, type_demande=payload.type_vehicule_demande,
+            mode=payload.mode_prix_remplacement, prix_saisi=payload.prix_applique,
+        )
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    prix, type_vehicule = calc.prix, calc.type_vehicule
 
     obj = models.Mouvement(
+        type_vehicule_demande=calc.type_demande,
+        mode_prix_remplacement=calc.mode,
         date=payload.date,
         heure=payload.heure,
         client_id=payload.client_id,
@@ -101,8 +114,9 @@ def creer_mouvement(payload: schemas.MouvementCreate, db: Session = Depends(get_
     db.add(obj)
     # Apprentissage auto : si ce client + circuit n'a encore aucun tarif,
     # le prix saisi ici devient le tarif de référence pour la prochaine fois.
-    # Jamais pour un mouvement offert (sinon le prix 0 deviendrait le tarif du client).
-    if not payload.offert:
+    # Jamais pour un mouvement offert (sinon le prix 0 deviendrait le tarif du client),
+    # ni pour un remplacement de véhicule (prix de dépannage, pas un tarif du client).
+    if not payload.offert and not calc.remplacement:
         apprendre_tarif_si_absent(db, payload.client_id, payload.circuit_id, payload.heure, type_vehicule, prix)
     db.commit()
     db.refresh(obj)
@@ -124,13 +138,23 @@ def dupliquer_groupe(payload: schemas.MouvementsDupliquerGroupeIn, db: Session =
 
     nouveaux = []
     for obj in objs:
-        type_vehicule = type_vehicule_du_vehicule(db, obj.vehicule_id)
         # Le prix est récupéré depuis le tarif client reconnu au moment de la
         # duplication (et non recopié tel quel depuis le mouvement d'origine) :
         # si un tarif a changé entre-temps, la copie reflète le tarif à jour.
+        # Remplacement de véhicule : même règle de prix que l'original (un prix manuel est conservé).
         heure = payload.nouvelle_heure or obj.heure
-        prix = 0.0 if obj.offert else calculer_prix(db, obj.client_id, obj.circuit_id, heure, type_vehicule)
+        try:
+            calc = determiner_prix_mouvement(
+                db, client_id=obj.client_id, circuit_id=obj.circuit_id, heure=heure, vehicule_id=obj.vehicule_id,
+                offert=obj.offert, type_demande=obj.type_vehicule_demande, mode=obj.mode_prix_remplacement,
+                prix_saisi=float(obj.prix_applique) if obj.mode_prix_remplacement == "manuel" else None,
+            )
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        prix = calc.prix
         nouveaux.append(models.Mouvement(
+            type_vehicule_demande=calc.type_demande,
+            mode_prix_remplacement=calc.mode,
             date=payload.nouvelle_date,
             heure=heure,
             client_id=obj.client_id,
@@ -161,11 +185,18 @@ def modifier_mouvement(mouvement_id: int, payload: schemas.MouvementCreate, db: 
     if not db.query(models.Circuit).get(payload.circuit_id):
         raise HTTPException(400, "Circuit introuvable.")
 
-    type_vehicule = type_vehicule_du_vehicule(db, payload.vehicule_id)
-    prix = 0.0 if payload.offert else payload.prix_applique
-    if prix is None:
-        prix = calculer_prix(db, payload.client_id, payload.circuit_id, payload.heure, type_vehicule)
+    try:
+        calc = determiner_prix_mouvement(
+            db, client_id=payload.client_id, circuit_id=payload.circuit_id, heure=payload.heure,
+            vehicule_id=payload.vehicule_id, offert=payload.offert, type_demande=payload.type_vehicule_demande,
+            mode=payload.mode_prix_remplacement, prix_saisi=payload.prix_applique,
+        )
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    prix, type_vehicule = calc.prix, calc.type_vehicule
 
+    obj.type_vehicule_demande = calc.type_demande
+    obj.mode_prix_remplacement = calc.mode
     obj.date = payload.date
     obj.heure = payload.heure
     obj.client_id = payload.client_id
@@ -177,8 +208,8 @@ def modifier_mouvement(mouvement_id: int, payload: schemas.MouvementCreate, db: 
     obj.prix_applique = prix
     obj.offert = payload.offert
 
-    # Apprentissage auto : même logique qu'à la création (sauf mouvement offert).
-    if not payload.offert:
+    # Apprentissage auto : même logique qu'à la création (sauf mouvement offert ou remplacement).
+    if not payload.offert and not calc.remplacement:
         apprendre_tarif_si_absent(db, payload.client_id, payload.circuit_id, payload.heure, type_vehicule, prix)
     db.commit()
     db.refresh(obj)
@@ -202,12 +233,20 @@ def prix_suggere(
     circuit_id: int,
     heure: str,
     vehicule_id: int | None = None,
+    type_demande: models.TypeVehicule | None = None,
+    mode: str | None = None,
     db: Session = Depends(get_db),
 ):
-    """Aide au formulaire : renvoie le prix calculé avant même de créer le mouvement."""
+    """Aide au formulaire : renvoie le prix calculé avant même de créer le mouvement
+    (en tenant compte d'un éventuel remplacement de véhicule)."""
     from datetime import time as time_cls
     h, m = heure.split(":")[:2]
     heure_obj = time_cls(int(h), int(m))
-    type_vehicule = type_vehicule_du_vehicule(db, vehicule_id)
-    prix = calculer_prix(db, client_id, circuit_id, heure_obj, type_vehicule)
-    return {"prix_suggere": prix, "type_vehicule": type_vehicule.value}
+    try:
+        calc = determiner_prix_mouvement(
+            db, client_id=client_id, circuit_id=circuit_id, heure=heure_obj, vehicule_id=vehicule_id,
+            offert=False, type_demande=type_demande, mode=mode if mode != "manuel" else "demande",
+        )
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return {"prix_suggere": calc.prix, "type_vehicule": calc.type_vehicule.value, "remplacement": calc.remplacement}
