@@ -77,6 +77,8 @@ export default function Mouvements() {
   const [dateAu, setDateAu] = useState(() => bornesMoisCourant().au);
   const [filtreClient, setFiltreClient] = useState("");
   const [filtreCircuit, setFiltreCircuit] = useState("");
+  // Circuits proposés dans le filtre : uniquement ceux qui ont un tarif client (celui du client filtré s'il y en a un).
+  const [circuitsFiltreIds, setCircuitsFiltreIds] = useState<number[] | null>(null);
   const [filtreStatutMvt, setFiltreStatutMvt] = useState("");
   const [filtreHeure, setFiltreHeure] = useState("");
   const [filtreTransporteur, setFiltreTransporteur] = useState("");
@@ -140,6 +142,18 @@ export default function Mouvements() {
       alert((e as Error).message);
     }
   }
+
+  useEffect(() => {
+    const q = filtreClient ? `?client_id=${filtreClient}` : "";
+    api
+      .get<number[]>(`/circuits/avec-tarifs${q}`)
+      .then((ids) => {
+        setCircuitsFiltreIds(ids);
+        // Le circuit filtré n'existe pas dans les tarifs de ce client : on retire ce filtre.
+        setFiltreCircuit((actuel) => (actuel && !ids.includes(Number(actuel)) ? "" : actuel));
+      })
+      .catch(() => setCircuitsFiltreIds(null)); // en cas d'erreur : liste complète
+  }, [filtreClient]);
 
   useEffect(() => {
     api.get<Client[]>("/clients/").then(setClients);
@@ -526,10 +540,12 @@ export default function Mouvements() {
         <div className="form-field">
           <label>Circuit</label>
           <select value={filtreCircuit} onChange={(e) => setFiltreCircuit(e.target.value)}>
-            <option value="">Tous les circuits</option>
-            {circuits.map((c) => (
-              <option key={c.id} value={c.id}>{c.point_depart} → {c.point_arrivee}</option>
-            ))}
+            <option value="">{filtreClient ? "Tous les circuits du client" : "Tous les circuits tarifés"}</option>
+            {circuits
+              .filter((c) => circuitsFiltreIds === null || circuitsFiltreIds.includes(c.id))
+              .map((c) => (
+                <option key={c.id} value={c.id}>{c.point_depart} → {c.point_arrivee}</option>
+              ))}
           </select>
         </div>
         <div className="form-field">
