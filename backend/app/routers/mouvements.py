@@ -110,6 +110,7 @@ def creer_mouvement(payload: schemas.MouvementCreate, db: Session = Depends(get_
         nb_personnes=payload.nb_personnes,
         prix_applique=prix,
         offert=payload.offert,
+        remarque=(payload.remarque or "").strip() or None,
     )
     db.add(obj)
     # Apprentissage auto : si ce client + circuit n'a encore aucun tarif,
@@ -165,6 +166,7 @@ def dupliquer_groupe(payload: schemas.MouvementsDupliquerGroupeIn, db: Session =
             nb_personnes=obj.nb_personnes,
             prix_applique=prix,
             offert=obj.offert,
+            remarque=obj.remarque,
         ))
     db.add_all(nouveaux)
     db.commit()
@@ -207,6 +209,7 @@ def modifier_mouvement(mouvement_id: int, payload: schemas.MouvementCreate, db: 
     obj.nb_personnes = payload.nb_personnes
     obj.prix_applique = prix
     obj.offert = payload.offert
+    obj.remarque = (payload.remarque or "").strip() or None
 
     # Apprentissage auto : même logique qu'à la création (sauf mouvement offert ou remplacement).
     if not payload.offert and not calc.remplacement:

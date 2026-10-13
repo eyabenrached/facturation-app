@@ -185,6 +185,8 @@ class Mouvement(Base):
     prix_applique: Mapped[float] = mapped_column(Numeric(10, 3))
     # Véhicule offert gratuitement (ex : complément de places) : prix = 0, jamais mémorisé comme tarif client.
     offert: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    # Remarque libre sur le mouvement (usage interne, n'apparaît pas sur la facture).
+    remarque: Mapped[str | None] = mapped_column(String(500), nullable=True)
     # Remplacement de véhicule : type demandé par le client quand le véhicule fourni est d'un autre type
     # (ex : microbus demandé, mini bus fourni) et règle de prix retenue : demande | fourni | manuel.
     type_vehicule_demande: Mapped[TypeVehicule | None] = mapped_column(

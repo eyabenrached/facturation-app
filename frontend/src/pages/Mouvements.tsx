@@ -30,6 +30,7 @@ const VIDE_MOUVEMENT = {
   transporteur_id: null as number | null,
   nb_personnes: null as number | null,
   offert: false,
+  remarque: "",
   // Remplacement de véhicule (ex : microbus demandé, mini bus fourni).
   type_vehicule_demande: null as TypeVehicule | null,
   mode_prix_remplacement: "demande" as ModePrixRemplacement,
@@ -225,6 +226,7 @@ export default function Mouvements() {
       transporteur_id: m.transporteur_id,
       nb_personnes: m.nb_personnes,
       offert: m.offert ?? false,
+      remarque: m.remarque ?? "",
       type_vehicule_demande: m.type_vehicule_demande ?? null,
       mode_prix_remplacement: m.mode_prix_remplacement ?? "demande",
     });
@@ -247,6 +249,7 @@ export default function Mouvements() {
       transporteur_id: m.transporteur_id,
       nb_personnes: m.nb_personnes,
       offert: m.offert ?? false,
+      remarque: m.remarque ?? "",
       type_vehicule_demande: m.type_vehicule_demande ?? null,
       mode_prix_remplacement: m.mode_prix_remplacement ?? "demande",
     });
@@ -657,6 +660,15 @@ export default function Mouvements() {
           },
           { header: "Nb pers.", render: (m) => m.nb_personnes ?? "—" },
           {
+            header: "Remarque",
+            render: (m: Mouvement) =>
+              m.remarque ? (
+                <span title={m.remarque} style={{ display: "block", maxWidth: 170, fontSize: "0.82rem", whiteSpace: "pre-wrap" }}>{m.remarque}</span>
+              ) : (
+                "—"
+              ),
+          },
+          {
             header: "Prix",
             render: (m: Mouvement) => (
               <>
@@ -778,6 +790,16 @@ export default function Mouvements() {
                 min={0}
                 value={formMvt.nb_personnes ?? ""}
                 onChange={(e) => setFormMvt({ ...formMvt, nb_personnes: e.target.value ? Number(e.target.value) : null })}
+              />
+            </div>
+            <div className="form-field" style={{ gridColumn: "1 / -1" }}>
+              <label>Remarque (optionnel, interne : n'apparaît pas sur la facture)</label>
+              <textarea
+                rows={2}
+                maxLength={500}
+                value={formMvt.remarque}
+                onChange={(e) => setFormMvt({ ...formMvt, remarque: e.target.value })}
+                placeholder="Ex : client prévenu du remplacement, passager supplémentaire…"
               />
             </div>
           </div>

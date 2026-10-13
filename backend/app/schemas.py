@@ -1,6 +1,6 @@
 from datetime import date, time, datetime
 from typing import Literal
-from pydantic import BaseModel, EmailStr, ConfigDict
+from pydantic import BaseModel, EmailStr, ConfigDict, Field
 from .models import (
     StatutFacture, RoleUtilisateur, TypeVehicule, CategorieDepense,
     EtatReservation, TypePension,
@@ -202,6 +202,7 @@ class MouvementBase(BaseModel):
     transporteur_id: int | None = None
     nb_personnes: int | None = None
     offert: bool = False
+    remarque: str | None = Field(default=None, max_length=500)
     # Remplacement : type demandé par le client (si différent du véhicule fourni) et règle de prix.
     type_vehicule_demande: TypeVehicule | None = None
     mode_prix_remplacement: Literal["demande", "fourni", "manuel"] | None = None

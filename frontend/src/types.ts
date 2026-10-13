@@ -92,6 +92,7 @@ export interface Mouvement {
   nb_personnes: number | null;
   prix_applique: number;
   offert: boolean;
+  remarque: string | null;
   // Remplacement de véhicule : type demandé par le client et règle de prix retenue.
   type_vehicule_demande: TypeVehicule | null;
   mode_prix_remplacement: ModePrixRemplacement | null;

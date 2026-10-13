@@ -95,6 +95,7 @@ def migrer_colonnes_manquantes():
         conn.execute(text("ALTER TABLE vehicules ADD COLUMN IF NOT EXISTS nb_places INTEGER"))
         conn.execute(text("ALTER TABLE mouvements ADD COLUMN IF NOT EXISTS offert BOOLEAN NOT NULL DEFAULT FALSE"))
         # Remplacement de véhicule (type demandé + règle de prix).
+        conn.execute(text("ALTER TABLE mouvements ADD COLUMN IF NOT EXISTS remarque VARCHAR(500)"))
         conn.execute(text("ALTER TABLE mouvements ADD COLUMN IF NOT EXISTS type_vehicule_demande type_vehicule"))
         conn.execute(text("ALTER TABLE mouvements ADD COLUMN IF NOT EXISTS mode_prix_remplacement VARCHAR(10)"))
         # Dossiers hôtels : agence et circuit en saisie libre (texte).
