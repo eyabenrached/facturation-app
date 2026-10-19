@@ -71,7 +71,7 @@ export default function Accueil() {
         <div className="pub-dest">
           {destinations.map((d) => (
             <Link to="/contact" key={d.k} className="pub-dest-card" style={{
-              backgroundImage: `linear-gradient(180deg, rgba(8,20,38,0) 40%, rgba(8,20,38,.85)), url(/images/dest-${d.k}.jpg), url(/images/dest-${d.k}.svg)`,
+              backgroundImage: `linear-gradient(180deg, rgba(8,20,38,0) 30%, rgba(8,20,38,.92)), url(/images/dest-${d.k}.jpg), url(/images/dest-${d.k}.svg)`,
             }}>
               <span>{d.s}</span>
               <strong>{d.t}</strong>
