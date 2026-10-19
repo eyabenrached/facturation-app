@@ -637,14 +637,15 @@ export default function Mouvements() {
                 },
               ]
             : []),
-          { header: "Date", render: (m) => m.date },
-          { header: "Heure", render: (m) => m.heure },
+          { header: "Date", nowrap: true, render: (m) => m.date },
+          { header: "Heure", nowrap: true, render: (m) => m.heure },
           { header: "Client", render: (m) => m.client?.nom_societe || "—" },
           { header: "Circuit", render: (m) => (m.circuit ? `${m.circuit.point_depart} → ${m.circuit.point_arrivee}` : "—") },
           { header: "Transporteur", render: (m) => m.transporteur?.nom_agence || "—" },
           { header: "Chauffeur", render: (m) => (m.chauffeur ? `${m.chauffeur.prenom} ${m.chauffeur.nom}` : "—") },
           {
             header: "Véhicule",
+            nowrap: true,
             render: (m) => (
               <>
                 {m.vehicule?.matricule || "—"}
@@ -658,18 +659,19 @@ export default function Mouvements() {
               </>
             ),
           },
-          { header: "Nb pers.", render: (m) => m.nb_personnes ?? "—" },
+          { header: "Nb pers.", nowrap: true, render: (m) => m.nb_personnes ?? "—" },
           {
             header: "Remarque",
             render: (m: Mouvement) =>
               m.remarque ? (
-                <span title={m.remarque} style={{ display: "block", maxWidth: 170, fontSize: "0.82rem", whiteSpace: "pre-wrap" }}>{m.remarque}</span>
+                <span title={m.remarque} style={{ display: "block", maxWidth: 130, fontSize: "0.82rem", whiteSpace: "pre-wrap" }}>{m.remarque}</span>
               ) : (
                 "—"
               ),
           },
           {
             header: "Prix",
+            nowrap: true,
             render: (m: Mouvement) => (
               <>
                 {m.offert ? "Offert (0 TND)" : `${m.prix_applique} TND`}
@@ -681,9 +683,10 @@ export default function Mouvements() {
               </>
             ),
           },
-          { header: "Statut", render: (m) => (m.facture_id ? "Facturé" : "Non facturé") },
+          { header: "Statut", nowrap: true, render: (m) => (m.facture_id ? "Facturé" : "Non facturé") },
           {
             header: "Actions",
+            nowrap: true,
             render: (m) => (
               <>
                 <button className="btn-link" onClick={() => dupliquerMouvement(m)}>Dupliquer</button>

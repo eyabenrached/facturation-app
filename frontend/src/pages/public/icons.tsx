@@ -1,0 +1,12 @@
+const p = { width: 28, height: 28, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.6, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
+export const IcPlane = () => (<svg {...p}><path d="M2 14l8-2 5-8 2 1-2 8 6 2v2l-7-1-3 5-2-1 1-5-8-1z" /></svg>);
+export const IcMap = () => (<svg {...p}><path d="M9 4l6 2 6-2v14l-6 2-6-2-6 2V6z" /><path d="M9 4v14M15 6v14" /></svg>);
+export const IcBus = () => (<svg {...p}><rect x="3" y="4" width="18" height="13" rx="2" /><path d="M3 11h18M7 17v2M17 17v2" /><circle cx="7.5" cy="14" r=".6" /><circle cx="16.5" cy="14" r=".6" /></svg>);
+export const IcHotel = () => (<svg {...p}><path d="M3 21V5a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v16M15 11h5a1 1 0 0 1 1 1v9M3 21h18" /><path d="M7 8h4M7 12h4M7 16h4" /></svg>);
+export const IcHandshake = () => (<svg {...p}><path d="M3 12l4-4 4 2 4-2 6 5-5 5-3-2-2 2-3-1-5-5z" /></svg>);
+export const IcShield = () => (<svg {...p}><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z" /><path d="M9 12l2 2 4-4" /></svg>);
+export const IcClock = () => (<svg {...p}><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>);
+export const IcStar = () => (<svg {...p}><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z" /></svg>);
+export const IcPhone = () => (<svg {...p}><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z" /></svg>);
+export const IcMail = () => (<svg {...p}><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M3 7l9 6 9-6" /></svg>);
+export const IcPin = () => (<svg {...p}><path d="M12 21s7-6.2 7-11a7 7 0 0 0-14 0c0 4.8 7 11 7 11z" /><circle cx="12" cy="10" r="2.5" /></svg>);

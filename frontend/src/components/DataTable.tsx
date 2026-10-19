@@ -3,6 +3,8 @@ import React from "react";
 export interface Column<T> {
   header: React.ReactNode;
   render: (row: T) => React.ReactNode;
+  /** Empêche le retour à la ligne dans la colonne (dates, prix, actions…). */
+  nowrap?: boolean;
 }
 
 interface DataTableProps<T> {
@@ -33,7 +35,7 @@ export function DataTable<T>({ columns, rows, emptyMessage = "Aucune donnée." }
             rows.map((row, i) => (
               <tr key={i}>
                 {columns.map((c, j) => (
-                  <td key={j}>{c.render(row)}</td>
+                  <td key={j} className={c.nowrap ? "nowrap" : undefined}>{c.render(row)}</td>
                 ))}
               </tr>
             ))

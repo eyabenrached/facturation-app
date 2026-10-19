@@ -19,6 +19,11 @@ import Hotels from "./pages/Hotels";
 import DossiersHotels from "./pages/DossiersHotels";
 import FicheDossierHotel from "./pages/FicheDossierHotel";
 import ReservationsHotels from "./pages/ReservationsHotels";
+import PublicLayout from "./pages/public/PublicLayout";
+import Accueil from "./pages/public/Accueil";
+import Services from "./pages/public/Services";
+import APropos from "./pages/public/APropos";
+import Contact from "./pages/public/Contact";
 import MessagerieWidget from "./components/MessagerieWidget";
 import ComptaDashboard from "./pages/compta/ComptaDashboard";
 import ComptaJournal from "./pages/compta/ComptaJournal";
@@ -70,7 +75,7 @@ function Sidebar({ ouverte, onFermer }: { ouverte: boolean; onFermer: () => void
 
   return (
     <aside className={`sidebar${ouverte ? " sidebar-ouverte" : ""}`}>
-      <h1>Facturation Transport</h1>
+      <h1><img src="/logo.png" alt="" style={{ height: 34, verticalAlign: "middle", marginRight: 8, background: "#fff", borderRadius: 6, padding: 2 }} />EURAFR TOURS</h1>
       <nav onClick={onFermer}>
         {estAdmin && (
           <NavLink to="/dashboard" className={({ isActive }) => (isActive ? "active" : "")}>
@@ -184,7 +189,21 @@ function RoutesProtegees() {
   }, [location.pathname]);
 
   if (chargement) return null;
-  if (!utilisateur) return <Login />;
+  if (!utilisateur) {
+    // Visiteur non connecté : site public + page de connexion.
+    return (
+      <Routes>
+        <Route element={<PublicLayout />}>
+          <Route path="/" element={<Accueil />} />
+          <Route path="/services" element={<Services />} />
+          <Route path="/a-propos" element={<APropos />} />
+          <Route path="/contact" element={<Contact />} />
+        </Route>
+        <Route path="/connexion" element={<Login />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    );
+  }
 
   const estAdmin = utilisateur.role === "administrateur";
 
@@ -202,7 +221,7 @@ function RoutesProtegees() {
           <span />
           <span />
         </button>
-        <span className="mobile-header-title">Facturation Transport</span>
+        <span className="mobile-header-title">EURAFR TOURS</span>
       </header>
 
       {menuOuvert && <div className="sidebar-overlay" onClick={() => setMenuOuvert(false)} />}
@@ -210,6 +229,7 @@ function RoutesProtegees() {
       <Sidebar ouverte={menuOuvert} onFermer={() => setMenuOuvert(false)} />
       <main className="content">
         <Routes>
+          <Route path="/connexion" element={<Navigate to="/" replace />} />
           <Route path="/" element={<Navigate to={estAdmin ? "/dashboard" : "/mouvements"} replace />} />
           {estAdmin && <Route path="/dashboard" element={<Dashboard />} />}
           <Route path="/chauffeurs" element={<Chauffeurs />} />

@@ -1,0 +1,6 @@
+PHOTOS PERSONNALISEES
+Deposez vos photos dans ce dossier avec ces noms exacts (format .jpg) :
+  hero.jpg            -> grande image de la page d'accueil (1920x1080 conseille)
+  banner.jpg          -> bandeau des pages Services / A propos / Contact (1920x500)
+  dest-hammamet.jpg, dest-sahara.jpg, dest-carthage.jpg, dest-djerba.jpg, dest-kairouan.jpg (800x530)
+Si une photo est absente, l'illustration .svg correspondante est utilisee automatiquement.

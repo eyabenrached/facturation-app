@@ -1,4 +1,4 @@
-# Facturation Transport — Backend FastAPI + Frontend React/TSX
+# EURAFR TOURS — Backend FastAPI + Frontend React/TSX
 
 Application de gestion : Chauffeurs, Clients, Agences, Véhicules, Circuits,
 Mouvements et Facturation automatique (HT/TVA/TTC + export PDF).

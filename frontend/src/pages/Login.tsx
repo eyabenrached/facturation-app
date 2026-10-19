@@ -1,4 +1,5 @@
 import { useState, FormEvent } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 
 export default function Login() {
@@ -24,7 +25,8 @@ export default function Login() {
   return (
     <div className="login-page">
       <form className="login-card" onSubmit={soumettre}>
-        <h1>Facturation Transport</h1>
+        <img src="/logo.png" alt="EURAFR TOURS" style={{ display: "block", margin: "0 auto 0.5rem", height: 90 }} />
+        <h1>EURAFR TOURS</h1>
         <p className="login-subtitle">Connectez-vous pour accéder à l'application</p>
 
         {erreur && <p className="error-msg">{erreur}</p>}
@@ -52,6 +54,9 @@ export default function Login() {
         <button className="btn" type="submit" disabled={enCours} style={{ width: "100%" }}>
           {enCours ? "Connexion..." : "Se connecter"}
         </button>
+        <p style={{ textAlign: "center", marginTop: "1rem", fontSize: "0.85rem" }}>
+          <Link to="/">← Retour au site</Link>
+        </p>
       </form>
     </div>
   );

@@ -14,7 +14,7 @@ from .routers import (
     messagerie, hotels, dossiers_hotels, reservations_hotels, comptabilite,
 )
 
-app = FastAPI(title="API Facturation Transport", version="1.0.0")
+app = FastAPI(title="API EURAFR TOURS", version="1.0.0")
 
 origins = os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",")
 app.add_middleware(
@@ -193,4 +193,4 @@ app.include_router(comptabilite.router)
 
 @app.get("/")
 def root():
-    return {"status": "ok", "message": "API Facturation Transport"}
+    return {"status": "ok", "message": "API EURAFR TOURS"}
