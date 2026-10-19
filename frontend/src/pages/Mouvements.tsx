@@ -664,7 +664,7 @@ export default function Mouvements() {
             header: "Remarque",
             render: (m: Mouvement) =>
               m.remarque ? (
-                <span title={m.remarque} style={{ display: "block", maxWidth: 130, fontSize: "0.82rem", whiteSpace: "pre-wrap" }}>{m.remarque}</span>
+                <span title={m.remarque} style={{ display: "block", maxWidth: 150, fontSize: "0.82rem", whiteSpace: "pre-wrap" }}>{m.remarque}</span>
               ) : (
                 "—"
               ),

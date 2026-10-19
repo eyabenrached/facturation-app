@@ -353,16 +353,16 @@ a { color: inherit; }
   background: linear-gradient(180deg, var(--navy) 0%, var(--navy-deep) 100%);
   color: #eef1f8;
   text-align: left;
-  padding: 0.62rem 0.7rem;
-  font-size: 0.72rem;
+  padding: 0.68rem 0.9rem;
+  font-size: 0.74rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   border-bottom: 2px solid var(--gold);
 }
 .data-table td {
-  padding: 0.58rem 0.7rem;
-  font-size: 0.84rem;
+  padding: 0.65rem 0.9rem;
+  font-size: 0.86rem;
   border-bottom: 1px solid var(--line);
   color: var(--ink);
   transition: background 0.15s var(--ease);
@@ -1113,7 +1113,7 @@ a:focus-visible, button:focus-visible {
   .msg-bouton-flottant { right: 1rem; bottom: 1rem; }
 }
 /* ---------- Écrans de portable : tableaux plus compacts, sans défilement ---------- */
-@media (min-width: 861px) and (max-width: 1600px) {
+@media (min-width: 861px) and (max-width: 1700px) {
   .content { padding: 1.75rem 1.25rem; }
   .data-table th { padding: 0.55rem 0.45rem; font-size: 0.68rem; letter-spacing: 0.03em; }
   .data-table td { padding: 0.5rem 0.45rem; font-size: 0.8rem; }
