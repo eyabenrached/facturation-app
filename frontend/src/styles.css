@@ -597,26 +597,22 @@ a { color: inherit; }
   display: flex;
   align-items: center;
   justify-content: center;
-  background:
-    radial-gradient(circle at 18% 22%, rgba(184, 144, 46, 0.16) 0%, transparent 42%),
-    radial-gradient(circle at 82% 78%, rgba(184, 144, 46, 0.10) 0%, transparent 45%),
-    radial-gradient(circle at 20% 20%, #1c3a63 0%, var(--navy-deep) 62%);
+  /* Image de fond : login.jpg si présente, sinon hero.jpg, sinon l'illustration SVG */
+  background-color: var(--navy-deep);
+  background-image: url(/images/login.jpg), url(/images/hero.jpg), url(/images/hero.svg);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
   overflow: hidden;
 }
 
-/* Signature : une ligne de circuit pointillée reliant deux arrêts,
-   discrètement animée — écho au métier (trajets, circuits), en or. */
+/* Voile sombre par-dessus l'image pour garder la carte lisible */
 .login-page::before {
   content: "";
   position: absolute;
   inset: 0;
-  background-image:
-    radial-gradient(circle 5px at 12% 30%, var(--gold-bright) 98%, transparent 100%),
-    radial-gradient(circle 5px at 88% 74%, var(--gold-bright) 98%, transparent 100%),
-    linear-gradient(115deg, transparent 49.4%, rgba(230, 196, 105, 0.4) 49.7%, rgba(230, 196, 105, 0.4) 50.3%, transparent 50.6%);
-  background-repeat: no-repeat;
-  background-size: 100% 100%;
-  opacity: 0.9;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(7, 20, 43, 0) 0%, rgba(7, 20, 43, 0.18) 100%);
   pointer-events: none;
 }
 
@@ -630,6 +626,7 @@ a { color: inherit; }
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.4);
   animation: loginCardIn 0.5s var(--ease) both;
   overflow: hidden;
+  z-index: 1;
 }
 .login-card::before {
   content: "";
@@ -647,14 +644,6 @@ a { color: inherit; }
   text-align: center;
 }
 .login-subtitle { text-align: center; color: var(--muted); font-size: 0.86rem; margin: 0 0 1.6rem; }
-
-@media (prefers-reduced-motion: no-preference) {
-  .login-page::before { animation: deriveRoute 12s ease-in-out infinite alternate; }
-}
-@keyframes deriveRoute {
-  from { opacity: 0.75; }
-  to { opacity: 1; }
-}
 
 /* ---------- Accessibilité : focus clavier visible partout ---------- */
 a:focus-visible, button:focus-visible {
